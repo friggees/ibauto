@@ -28,6 +28,13 @@
             margin-right: 10px;
         }
         button.stop { background-color: #d9534f; }
+        /* Style for individual stop buttons */
+        button.stop-single-bot {
+             padding: 5px 10px; /* Smaller padding */
+             font-size: 0.9em; /* Smaller font */
+             margin-top: 0; /* Remove top margin */
+             margin-left: 10px; /* Add left margin */
+        }
         button:hover, input[type="submit"]:hover { opacity: 0.9; }
         .stats { margin-top: 20px; padding: 15px; border: 1px solid #eee; border-radius: 4px; background-color: #f9f9f9; }
         .stats p { margin: 5px 0; }
@@ -40,6 +47,21 @@
         .form-section { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
         .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
         .form-group label { margin-top: 0; } /* Adjust label margin within grid */
+        #log-output {
+            background-color: #222; /* Dark background for logs */
+            color: #eee; /* Light text */
+            padding: 10px;
+            border-radius: 4px;
+            height: 400px; /* Fixed height */
+            overflow-y: scroll; /* Enable vertical scrolling */
+            white-space: pre-wrap; /* Wrap long lines */
+            word-wrap: break-word; /* Break long words */
+            font-family: monospace;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+        #bot-log-select { padding: 5px; margin-left: 10px; }
+        #active-bots-list li { margin-bottom: 5px; } /* Add spacing between list items */
     </style>
 </head>
 <body>
@@ -71,14 +93,35 @@
             </form>
             <p>Status: <span id="bot-status">{% if stats.is_running %}Running{% else %}Stopped{% endif %}</span></p>
             <p>Active Processes: <span id="active-processes">{{ stats.active_processes }}</span> / <span id="target-processes">{{ stats.target_processes }}</span></p>
-            <p>Active Profile IDs: <span id="active_profiles">{{ stats.active_profile_ids | join(', ') }}</span></p>
+            <div> <!-- Changed from p to div for better structure -->
+                <label>Active Bots:</label>
+                <ul id="active-bots-list" style="list-style: none; padding: 0;">
+                    <!-- Active bots will be populated by JavaScript -->
+                    {% if not stats.active_profile_ids %}
+                    <li>None</li>
+                    {% endif %}
+                </ul>
+            </div>
+            <p>All Known Bot IDs (for log selection): <span id="all-known-bots">{{ stats.get('all_known_bot_ids', stats.active_profile_ids) | join(', ') }}</span></p>
         </div>
 
         <!-- Statistics -->
         <div class="stats form-section">
             <h2>Statistics</h2>
             <p>Total Links Sent (Current Session): <span id="total-links">{{ stats.total_links_sent }}</span></p>
+            <p>Conversations Started (Current Session): <span id="conversations-started">{{ stats.get('conversations_started', 0) }}</span></p> <!-- NEW STAT DISPLAY -->
             <!-- Add more stats here if needed -->
+        </div>
+
+         <!-- Bot Logs Viewer -->
+        <div class="form-section">
+            <h2>Bot Logs</h2>
+            <label for="bot-log-select">Select Bot ID:</label>
+            <select id="bot-log-select">
+                <option value="">-- Select a Bot --</option>
+                <!-- Options will be populated by JavaScript -->
+            </select>
+            <pre id="log-output">Select a bot ID to view logs...</pre>
         </div>
 
         <!-- Configuration Form -->
@@ -142,17 +185,187 @@
     </div>
 
     <script>
+        // --- Log Fetching Logic (Keep as is) ---
+        const logSelect = document.getElementById('bot-log-select');
+        const logOutput = document.getElementById('log-output');
+        let selectedBotId = null;
+        let logFetchInterval = null;
+        const LOG_FETCH_INTERVAL_MS = 3000; // Fetch logs every 3 seconds
+
+        function updateBotLogOptions(botIds) {
+            const currentSelectedValue = logSelect.value;
+            while (logSelect.options.length > 1) {
+                logSelect.remove(1);
+            }
+            botIds.forEach(id => {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = id;
+                logSelect.appendChild(option);
+            });
+            if (botIds.includes(currentSelectedValue)) {
+                logSelect.value = currentSelectedValue;
+            } else {
+                logSelect.value = "";
+                selectedBotId = null;
+                stopLogFetching();
+                logOutput.textContent = 'Select a bot ID to view logs...';
+            }
+        }
+
+         function fetchLogs() {
+            if (!selectedBotId) {
+                logOutput.textContent = 'Select a bot ID to view logs...';
+                return;
+            }
+            fetch(`/logs/${selectedBotId}`)
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.error) {
+                         logOutput.textContent = `Error fetching logs: ${data.error}`;
+                    } else if (data.logs) {
+                        const newLogContent = data.logs.join('\n');
+                        if (logOutput.textContent !== newLogContent) {
+                            logOutput.textContent = newLogContent;
+                            logOutput.scrollTop = logOutput.scrollHeight;
+                        }
+                    } else {
+                        logOutput.textContent = 'No logs received.';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching logs:', error);
+                    logOutput.textContent = `Error fetching logs: ${error}. Is the server running?`;
+                    stopLogFetching();
+                });
+        }
+
+        function startLogFetching() {
+            stopLogFetching();
+            if (selectedBotId) {
+                fetchLogs();
+                logFetchInterval = setInterval(fetchLogs, LOG_FETCH_INTERVAL_MS);
+                console.log(`Started fetching logs for ${selectedBotId} every ${LOG_FETCH_INTERVAL_MS}ms`);
+            }
+        }
+
+        function stopLogFetching() {
+            if (logFetchInterval) {
+                clearInterval(logFetchInterval);
+                logFetchInterval = null;
+                console.log(`Stopped fetching logs for ${selectedBotId}`);
+            }
+        }
+
+        logSelect.addEventListener('change', (event) => {
+            selectedBotId = event.target.value;
+            if (selectedBotId) {
+                logOutput.textContent = `Fetching logs for ${selectedBotId}...`;
+                startLogFetching();
+            } else {
+                logOutput.textContent = 'Select a bot ID to view logs...';
+                stopLogFetching();
+            }
+        });
+
+        // --- Individual Bot Stop Logic ---
+        const activeBotsList = document.getElementById('active-bots-list');
+
+        activeBotsList.addEventListener('click', function(event) {
+            // Check if the clicked element is a button with the correct class
+            if (event.target.tagName === 'BUTTON' && event.target.classList.contains('stop-single-bot')) {
+                const button = event.target;
+                const profileId = button.dataset.profileId; // Get ID from data attribute
+
+                if (profileId && confirm(`Are you sure you want to stop bot ${profileId}?`)) {
+                    // Disable button immediately to prevent multiple clicks
+                    button.disabled = true;
+                    button.textContent = 'Stopping...';
+
+                    fetch(`/stop_bot/${profileId}`, {
+                        method: 'POST',
+                        headers: {
+                            // CSRF token would be added here if needed
+                        }
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            // Try to get error message from server if possible, otherwise use status
+                            return response.text().then(text => {
+                                throw new Error(`Server responded with status ${response.status}: ${text}`);
+                            });
+                        }
+                        // Redirect should happen automatically due to Flask redirect
+                        // Fetch stats immediately for a potentially faster UI update before redirect completes
+                        fetchStats();
+                        // No need to re-enable button as page will reload or stats update will remove it
+                    })
+                    .catch(error => {
+                        console.error('Error stopping bot:', error);
+                        alert(`Failed to stop bot ${profileId}: ${error}`);
+                        // Re-enable button on error so user can try again if needed
+                        button.disabled = false;
+                        button.textContent = 'Stop';
+                    });
+                }
+            }
+        });
+
+
+        // --- Stats Fetching and UI Update ---
         function fetchStats() {
             fetch('/get_stats')
                 .then(response => response.json())
                 .then(data => {
+                    // Update general status
                     document.getElementById('bot-status').textContent = data.is_running ? 'Running' : 'Stopped';
                     document.getElementById('active-processes').textContent = data.active_processes;
                     document.getElementById('target-processes').textContent = data.target_processes;
-                    document.getElementById('active-profiles').textContent = data.active_profile_ids.join(', ');
                     document.getElementById('total-links').textContent = data.total_links_sent;
+                    document.getElementById('conversations-started').textContent = data.conversations_started; // UPDATE NEW STAT
 
-                    // Enable/disable buttons based on status
+                    // Update "All Known Bot IDs" span
+                    const allKnownBotsSpan = document.getElementById('all-known-bots');
+                    if (allKnownBotsSpan) {
+                         allKnownBotsSpan.textContent = data.all_known_bot_ids ? data.all_known_bot_ids.join(', ') : 'N/A';
+                    }
+
+                    // --- Update Active Bots List with Buttons ---
+                    const activeBotsContainer = document.getElementById('active-bots-list');
+                    activeBotsContainer.innerHTML = ''; // Clear previous list items
+                    if (data.active_profile_ids && data.active_profile_ids.length > 0) {
+                        data.active_profile_ids.forEach(botId => {
+                            const li = document.createElement('li');
+
+                            const idSpan = document.createElement('span');
+                            idSpan.textContent = botId;
+                            idSpan.style.marginRight = '10px'; // Add space
+
+                            // Create the stop button for this specific bot
+                            const stopButtonSingle = document.createElement('button');
+                            stopButtonSingle.textContent = 'Stop';
+                            stopButtonSingle.classList.add('stop', 'stop-single-bot'); // Add classes for styling and event listener
+                            stopButtonSingle.dataset.profileId = botId; // Store the profile ID on the button
+
+                            li.appendChild(idSpan);
+                            li.appendChild(stopButtonSingle);
+                            activeBotsContainer.appendChild(li);
+                        });
+                    } else {
+                         // Display "None" if no active bots
+                         const li = document.createElement('li');
+                         li.textContent = 'None';
+                         activeBotsContainer.appendChild(li);
+                    }
+                    // --- End Update Active Bots List ---
+
+                    // Update the log dropdown options
+                    updateBotLogOptions(data.all_known_bot_ids || []);
+
+                    // Enable/disable global start/stop buttons
                     const startUrl = "{{ url_for('start_bots_route') }}";
                     const stopUrl = "{{ url_for('stop_bots_route') }}";
                     const startButton = document.querySelector(`form[action="${startUrl}"] button`);
@@ -163,15 +376,20 @@
                     } else {
                         startButton.disabled = false;
                         stopButton.disabled = true;
+                        stopLogFetching(); // Stop fetching logs if all bots stopped
                     }
                 })
-                .catch(error => console.error('Error fetching stats:', error));
+                .catch(error => {
+                    console.error('Error fetching stats:', error);
+                    // Optionally update UI to show stats fetch error
+                });
         }
 
         // Fetch stats every 5 seconds
         setInterval(fetchStats, 5000);
         // Fetch stats immediately on page load
         fetchStats();
+
     </script>
 </body>
 </html>

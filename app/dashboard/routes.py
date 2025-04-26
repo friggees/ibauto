@@ -200,6 +200,38 @@ def get_stats_route():
     return jsonify(stats)
 
 
+@app.route('/logs/<bot_id>')
+def get_logs_route(bot_id):
+    """API endpoint to fetch logs for a specific bot ID."""
+    if not concurrency_manager:
+        return jsonify({"error": "Concurrency manager not initialized"}), 500
+    try:
+        logs = concurrency_manager.get_logs(bot_id)
+        # Ensure logs are returned as a list of strings, even if empty or error message
+        if not isinstance(logs, list):
+            # Convert to list if it's not already (e.g., error string)
+            logs = [str(logs)]
+        return jsonify({"logs": logs})
+    except Exception as e:
+        # Log the error server-side for debugging
+        print(f"Error fetching logs for bot_id {bot_id}: {e}")
+        # Return a generic error to the client
+        return jsonify({"error": f"Failed to retrieve logs for bot {bot_id}"}), 500
+
+
+@app.route('/stop_bot/<profile_id>', methods=['POST'])
+def stop_single_bot_route(profile_id):
+    """Stops a single bot process by its profile ID."""
+    if not concurrency_manager:
+        flash("Concurrency manager not initialized.", "error")
+    elif concurrency_manager.stop_bot(profile_id):
+        flash(f"Attempted to stop bot {profile_id}.", "success")
+    else:
+        flash(
+            f"Failed to stop bot {profile_id} (it might not have been running).", "warning")
+    return redirect(url_for('index'))
+
+
 @app.route('/reset_tracker', methods=['POST'])
 def reset_tracker_route():
     """Handles resetting the user tracker data."""

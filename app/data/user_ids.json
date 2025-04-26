@@ -424,5 +424,149 @@
         "message_phase": 1,
         "user_incoming_message_count_at_last_send": 2,
         "last_interaction": 1745669004.5317302
+    },
+    "249388049": {
+        "first_contact": 1745673574.2172697,
+        "message_phase": 2,
+        "user_incoming_message_count_at_last_send": 3,
+        "last_interaction": 1745673628.7164664
+    },
+    "249388987": {
+        "first_contact": 1745673581.0110574,
+        "message_phase": 2,
+        "user_incoming_message_count_at_last_send": 2,
+        "last_interaction": 1745673613.6192424
+    },
+    "249386426": {
+        "first_contact": 1745673589.1240628,
+        "message_phase": 1,
+        "user_incoming_message_count_at_last_send": 1,
+        "last_interaction": 1745673591.7360458
+    },
+    "249385198": {
+        "first_contact": 1745673602.6258779,
+        "message_phase": 3,
+        "user_incoming_message_count_at_last_send": 5,
+        "last_interaction": 1745673664.2173212
+    },
+    "249388500": {
+        "first_contact": 1745673645.9089513,
+        "message_phase": 1,
+        "user_incoming_message_count_at_last_send": 1,
+        "last_interaction": 1745673649.1440048
+    },
+    "249390035": {
+        "first_contact": 1745673681.5523834,
+        "message_phase": 1,
+        "user_incoming_message_count_at_last_send": 1,
+        "last_interaction": 1745673689.2345324
+    },
+    "249388263": {
+        "first_contact": 1745673696.4199796,
+        "message_phase": 1,
+        "user_incoming_message_count_at_last_send": 1,
+        "last_interaction": 1745673698.753785
+    },
+    "249390060": {
+        "first_contact": 1745673703.2184916,
+        "message_phase": 0,
+        "user_incoming_message_count_at_last_send": -1,
+        "last_interaction": 1745673703.2184916
+    },
+    "249390649": {
+        "first_contact": 1745673850.0270464,
+        "message_phase": 1,
+        "user_incoming_message_count_at_last_send": 1,
+        "last_interaction": 1745673852.324114
+    },
+    "249424717": {
+        "first_contact": 1745692830.4911494,
+        "message_phase": 1,
+        "user_incoming_message_count_at_last_send": 1,
+        "last_interaction": 1745692833.6696951
+    },
+    "249418042": {
+        "first_contact": 1745692839.6969173,
+        "message_phase": 5,
+        "user_incoming_message_count_at_last_send": 5,
+        "last_interaction": 1745693029.209712
+    },
+    "249425866": {
+        "first_contact": 1745692851.1180716,
+        "message_phase": 2,
+        "user_incoming_message_count_at_last_send": 2,
+        "last_interaction": 1745692874.411209
+    },
+    "249409824": {
+        "first_contact": 1745692860.8501747,
+        "message_phase": 2,
+        "user_incoming_message_count_at_last_send": 3,
+        "last_interaction": 1745693149.8630693
+    },
+    "249425492": {
+        "first_contact": 1745692884.0479715,
+        "message_phase": 2,
+        "user_incoming_message_count_at_last_send": 2,
+        "last_interaction": 1745693070.2125902
+    },
+    "249422543": {
+        "first_contact": 1745692919.3256407,
+        "message_phase": 1,
+        "user_incoming_message_count_at_last_send": 0,
+        "last_interaction": 1745692922.970687
+    },
+    "249424694": {
+        "first_contact": 1745692947.7027152,
+        "message_phase": 4,
+        "user_incoming_message_count_at_last_send": 5,
+        "last_interaction": 1745693156.599296
+    },
+    "249425927": {
+        "first_contact": 1745692957.99162,
+        "message_phase": 2,
+        "user_incoming_message_count_at_last_send": 2,
+        "last_interaction": 1745693141.1434026
+    },
+    "211089635": {
+        "first_contact": 1745692974.0213366,
+        "message_phase": 1,
+        "user_incoming_message_count_at_last_send": 1,
+        "last_interaction": 1745692977.0148578
+    },
+    "249425897": {
+        "first_contact": 1745693005.3307745,
+        "message_phase": 3,
+        "user_incoming_message_count_at_last_send": 4,
+        "last_interaction": 1745693183.8118324
+    },
+    "249424685": {
+        "first_contact": 1745693045.6785696,
+        "message_phase": 3,
+        "user_incoming_message_count_at_last_send": 3,
+        "last_interaction": 1745693125.5697114
+    },
+    "180968203": {
+        "first_contact": 1745693058.9973874,
+        "message_phase": 2,
+        "user_incoming_message_count_at_last_send": 2,
+        "last_interaction": 1745693107.4336505
+    },
+    "249416928": {
+        "first_contact": 1745693081.975521,
+        "message_phase": 1,
+        "user_incoming_message_count_at_last_send": 1,
+        "last_interaction": 1745693085.3444066
+    },
+    "249425913": {
+        "first_contact": 1745693098.1807573,
+        "message_phase": 3,
+        "user_incoming_message_count_at_last_send": 4,
+        "last_interaction": 1745693190.7601585
+    },
+    "249426123": {
+        "first_contact": 1745693173.5252433,
+        "message_phase": 1,
+        "user_incoming_message_count_at_last_send": 1,
+        "last_interaction": 1745693175.8535933
     }
 }
