@@ -170,13 +170,34 @@ def attempt_registration(driver, username, age, country_code, city, log_queue: m
 
     # Pass log info
     if not click_element(start_button, log_queue=log_queue, profile_id=profile_id):
-        _log("Failed to click start chat button.")
+        _log("[REG_ERROR] Failed to click start chat button.")
         return False
 
-    _log("Registration form submitted.")
-    # Add a small delay to allow page transition or error messages to appear
-    time.sleep(2)
-    return True
+    _log("Registration form submitted. Checking if login was successful...")
+    # Add a small delay to allow page transition
+    time.sleep(3)  # Increased delay slightly
+
+    # Check if we are still on the registration page by looking for the username input
+    try:
+        # Use a short timeout - if it's found quickly, we failed.
+        still_on_reg_page = find_element_with_wait(
+            driver, By.XPATH, XPATHS_REGISTRATION["username_input"], timeout=3, log_queue=log_queue, profile_id=profile_id)
+        if still_on_reg_page:
+            _log("[REG_ERROR] Login failed: Username input field is still present after clicking 'Start Chat Now'.")
+            # Optional: Check for specific error messages here if needed in the future
+            return False  # Indicate login failure
+        else:
+            # This case should ideally not happen if find_element_with_wait returns None on timeout
+            _log("[REG_WARN] Username input field check returned unexpected non-None value without timeout. Assuming login failed.")
+            return False
+    except TimeoutException:
+        # Username input NOT found - this is the expected outcome for successful login/navigation
+        _log("[REG] Login successful: Navigated away from registration page (username input not found).")
+        return True  # Indicate successful navigation away from registration
+    except Exception as e:
+        _log(
+            f"[REG_ERROR] Unexpected error checking for username input after login attempt: {e}")
+        return False  # Indicate failure due to unexpected error
 
 
 def handle_registration_process(driver, assigned_city: Optional[str] = None, usernames_list: Optional[List[str]] = None, log_queue: Optional[multiprocessing.Queue] = None, profile_id: Optional[str] = None):
