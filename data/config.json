@@ -3,6 +3,7 @@
     "adspower_api_host": "http://local.adspower.net:50325",
     "onlyfans_link": "emisecrets in 0nnlyF",
     "max_concurrent_browsers": 5,
+    "run_headless": false,
     "registration_defaults": {
         "age": "21",
         "country": "US",

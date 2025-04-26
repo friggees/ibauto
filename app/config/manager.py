@@ -11,6 +11,7 @@ DEFAULT_CONFIG = {
     "adspower_api_host": "http://local.adspower.net:50325",
     "onlyfans_link": "YOUR_ONLYFANS_LINK_HERE",
     "max_concurrent_browsers": 5,
+    "run_headless": False,  # Add headless mode default
     "usernames": [],  # List of usernames to try
     "registration_defaults": {
         "age": "18",

@@ -145,6 +145,11 @@
                         <label for="max_concurrent_browsers">Max Concurrent Browsers</label>
                          <input type="number" id="max_concurrent_browsers" name="max_concurrent_browsers" value="{{ config.max_concurrent_browsers }}" min="1" required>
                     </div>
+                    <div class="form-group">
+                        <label for="run_headless">Run Headless (AdsPower API must support this)</label>
+                        <input type="checkbox" id="run_headless" name="run_headless" value="true" {% if config.get('run_headless', false) %}checked{% endif %}>
+                        <small>Check this to attempt starting browsers without a visible window.</small>
+                    </div>
                      <div class="form-group" style="grid-column: span 2;"> <!-- Make profile IDs wider -->
                         <label for="adspower_profile_ids">AdsPower Profile IDs (One per line)</label>
                         <textarea id="adspower_profile_ids" name="adspower_profile_ids" required placeholder="profile_id1&#10;profile_id2&#10;...">{{ config.get('adspower_profile_ids', []) | join('\n') }}</textarea>

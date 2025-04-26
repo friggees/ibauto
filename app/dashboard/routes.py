@@ -96,6 +96,9 @@ def save_config_route():
             flash(
                 "Invalid number for Max Concurrent Browsers. Keeping previous value.", "warning")
 
+        # Handle the headless checkbox (present in form means True, absent means False)
+        current_config['run_headless'] = 'run_headless' in request.form
+
         # Update registration defaults (nested dict)
         if 'registration_defaults' not in current_config:
             current_config['registration_defaults'] = {}

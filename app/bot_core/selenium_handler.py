@@ -58,7 +58,16 @@ def start_adspower_browser(profile_id: str, log_queue: Optional[multiprocessing.
                           "http://local.adspower.net:50325")
 
     # open_tabs=0 prevents opening default tabs
-    start_url = f"{api_host}/api/v1/browser/start?user_id={profile_id}&open_tabs=0"
+    start_url_base = f"{api_host}/api/v1/browser/start?user_id={profile_id}&open_tabs=0"
+
+    # Check config for headless mode
+    run_headless = config.get("run_headless", False)
+    start_url = start_url_base
+    if run_headless:
+        start_url += "&headless=1"
+        _log(f"Headless mode requested for profile {profile_id}.")
+    else:
+        _log(f"Headless mode NOT requested for profile {profile_id}.")
 
     _log(
         f"Attempting to start AdsPower profile: {profile_id} via API: {start_url}")
