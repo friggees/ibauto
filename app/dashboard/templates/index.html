@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatib Bot Dashboard</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f4f4f4; }
+        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1, h2 { color: #333; }
+        label { display: block; margin-top: 10px; font-weight: bold; }
+        input[type="text"], input[type="number"], textarea {
+            width: 95%;
+            padding: 8px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        textarea { min-height: 150px; font-family: monospace; }
+        button, input[type="submit"] {
+            background-color: #5cb85c;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 15px;
+            margin-right: 10px;
+        }
+        button.stop { background-color: #d9534f; }
+        button:hover, input[type="submit"]:hover { opacity: 0.9; }
+        .stats { margin-top: 20px; padding: 15px; border: 1px solid #eee; border-radius: 4px; background-color: #f9f9f9; }
+        .stats p { margin: 5px 0; }
+        .stats span { font-weight: bold; }
+        .flash-messages { list-style: none; padding: 0; margin-bottom: 15px; }
+        .flash-messages li { padding: 10px; margin-bottom: 10px; border-radius: 4px; }
+        .flash-messages .success { background-color: #dff0d8; color: #3c763d; border: 1px solid #d6e9c6; }
+        .flash-messages .error { background-color: #f2dede; color: #a94442; border: 1px solid #ebccd1; }
+        .flash-messages .warning { background-color: #fcf8e3; color: #8a6d3b; border: 1px solid #faebcc; }
+        .form-section { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+        .form-group label { margin-top: 0; } /* Adjust label margin within grid */
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Chatib Bot Dashboard</h1>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <ul class="flash-messages">
+                {% for category, message in messages %}
+                    <li class="{{ category }}">{{ message }}</li>
+                {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Bot Control -->
+        <div class="form-section">
+            <h2>Bot Control</h2>
+            <form action="{{ url_for('start_bots_route') }}" method="POST" style="display: inline;">
+                <button type="submit" {% if stats.is_running %}disabled{% endif %}>Start Bots</button>
+            </form>
+            <form action="{{ url_for('stop_bots_route') }}" method="POST" style="display: inline;">
+                <button type="submit" class="stop" {% if not stats.is_running %}disabled{% endif %}>Stop Bots</button>
+            </form>
+             <form action="{{ url_for('reset_tracker_route') }}" method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to reset the user tracker data? This cannot be undone.');">
+                <button type="submit" class="stop">Reset User Tracker</button>
+            </form>
+            <p>Status: <span id="bot-status">{% if stats.is_running %}Running{% else %}Stopped{% endif %}</span></p>
+            <p>Active Processes: <span id="active-processes">{{ stats.active_processes }}</span> / <span id="target-processes">{{ stats.target_processes }}</span></p>
+            <p>Active Profile IDs: <span id="active_profiles">{{ stats.active_profile_ids | join(', ') }}</span></p>
+        </div>
+
+        <!-- Statistics -->
+        <div class="stats form-section">
+            <h2>Statistics</h2>
+            <p>Total Links Sent (Current Session): <span id="total-links">{{ stats.total_links_sent }}</span></p>
+            <!-- Add more stats here if needed -->
+        </div>
+
+        <!-- Configuration Form -->
+        <div class="form-section">
+            <h2>Configuration</h2>
+            <form action="{{ url_for('save_config_route') }}" method="POST">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="adspower_api_key">AdsPower API Key</label>
+                        <input type="text" id="adspower_api_key" name="adspower_api_key" value="{{ config.adspower_api_key }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="adspower_api_host">AdsPower API Host</label>
+                        <input type="text" id="adspower_api_host" name="adspower_api_host" value="{{ config.adspower_api_host }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="onlyfans_link">OnlyFans Link</label>
+                        <input type="text" id="onlyfans_link" name="onlyfans_link" value="{{ config.onlyfans_link }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="max_concurrent_browsers">Max Concurrent Browsers</label>
+                         <input type="number" id="max_concurrent_browsers" name="max_concurrent_browsers" value="{{ config.max_concurrent_browsers }}" min="1" required>
+                    </div>
+                     <div class="form-group" style="grid-column: span 2;"> <!-- Make profile IDs wider -->
+                        <label for="adspower_profile_ids">AdsPower Profile IDs (One per line)</label>
+                        <textarea id="adspower_profile_ids" name="adspower_profile_ids" required placeholder="profile_id1&#10;profile_id2&#10;...">{{ config.get('adspower_profile_ids', []) | join('\n') }}</textarea>
+                        <small>Enter each Profile ID on a new line. These profiles will be used when starting bots.</small>
+                    </div>
+                    <div class="form-group" style="grid-column: span 2;"> <!-- Make usernames wider -->
+                        <label for="usernames">Usernames to Try (One per line)</label>
+                        <textarea id="usernames" name="usernames" placeholder="username1&#10;username2&#10;username3&#10;...">{{ config.get('usernames', []) | join('\n') }}</textarea>
+                        <small>Enter usernames the bot should attempt during registration, one per line.</small>
+                    </div>
+                </div>
+
+                <h3>Registration Defaults</h3>
+                 <div class="form-grid">
+                    <div class="form-group">
+                        <label for="reg_age">Default Age</label>
+                        <input type="number" id="reg_age" name="reg_age" value="{{ config.registration_defaults.age }}" min="18" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="reg_country">Default Country Code</label>
+                         <input type="text" id="reg_country" name="reg_country" value="{{ config.registration_defaults.country }}" placeholder="e.g., US, GB, SE" required>
+                    </div>
+                    <div class="form-group" style="grid-column: span 2;"> <!-- Make city options wider -->
+                        <label for="reg_city_options">Default City Options (One per line)
+                            <span title="Examples:&#10;US: New York, Los Angeles, Chicago&#10;GB: London, Manchester, Birmingham&#10;DE: Berlin, Hamburg, Munich&#10;AU: Sydney, Melbourne, Brisbane&#10;SE: Stockholm, Gothenburg, Malmo"
+                                  style="cursor: help; border: 1px solid #ccc; border-radius: 50%; padding: 0 5px; display: inline-block; margin-left: 5px;">?</span>
+                        </label>
+                        <textarea id="reg_city_options" name="reg_city_options" required placeholder="City1&#10;City2&#10;City3&#10;...">{{ config.registration_defaults.city_options | join('\n') }}</textarea>
+                    </div>
+                </div>
+
+                <h3>Message Phases (One per line, use {onlyfans_link} for placeholder, also note the last 3 msgs are sent right after each other w. 10 sec delay)</h3>
+                <textarea id="messages" name="messages" required>{{ messages }}</textarea>
+
+                <input type="submit" value="Save Configuration & Messages">
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function fetchStats() {
+            fetch('/get_stats')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('bot-status').textContent = data.is_running ? 'Running' : 'Stopped';
+                    document.getElementById('active-processes').textContent = data.active_processes;
+                    document.getElementById('target-processes').textContent = data.target_processes;
+                    document.getElementById('active-profiles').textContent = data.active_profile_ids.join(', ');
+                    document.getElementById('total-links').textContent = data.total_links_sent;
+
+                    // Enable/disable buttons based on status
+                    const startUrl = "{{ url_for('start_bots_route') }}";
+                    const stopUrl = "{{ url_for('stop_bots_route') }}";
+                    const startButton = document.querySelector(`form[action="${startUrl}"] button`);
+                    const stopButton = document.querySelector(`form[action="${stopUrl}"] button`);
+                    if (data.is_running) {
+                        startButton.disabled = true;
+                        stopButton.disabled = false;
+                    } else {
+                        startButton.disabled = false;
+                        stopButton.disabled = true;
+                    }
+                })
+                .catch(error => console.error('Error fetching stats:', error));
+        }
+
+        // Fetch stats every 5 seconds
+        setInterval(fetchStats, 5000);
+        // Fetch stats immediately on page load
+        fetchStats();
+    </script>
+</body>
+</html>

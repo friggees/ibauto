@@ -1,0 +1,51 @@
+{
+    "navigation": {
+        "inbox_button": "//li[@onclick='inbox()']",
+        "inbox_container_loaded": "//div[@class='col-md-12 left_part inbox-item pills_items chat_online_users inbox_desc_history']"
+    },
+    "user_finding": {
+        "primary_container": "//div[@class='messages_container mess_container']",
+        "secondary_container": "//div[@class='col-md-12 left_part inbox-item pills_items chat_online_users inbox_desc_history']",
+        "additional_users_container": "//div[@class='pills_items pills_items_users']",
+        "male_user_data_attr": ".//*[@data-sexe='male']",
+        "any_user_fallback": ".//div[contains(@class, 'chat_item')] | .//div[contains(@class, 'user_item')] | .//div[contains(@class, 'user-item')] | .//div[contains(@class, 'conversation-item')] | .//div[contains(@class, 'contact')] | .//a[contains(@class, 'chat')]",
+        "page_wide_male_fallback": "//*[@data-sexe='male']",
+        "page_wide_any_user_fallback": "//div[contains(@class, 'chat_list')] | //div[contains(@class, 'user-item')] | //div[contains(@class, 'conversation')] | //div[contains(@class, 'contact')]"
+    },
+    "user_interaction": {
+        "inner_clickable": ".//a | .//button | .//div[contains(@class, 'clickable')]"
+    },
+    "user_id_extraction": {
+        "parent": "./..",
+        "data_id_attr": "//*[@data-id]",
+        "any_data_attr": "//*[@data-*]"
+    },
+    "messaging": {
+        "incoming_message": "//div[@class='incoming_msg_img p-relative']",
+        "outgoing_message": "//div[@class='outgoing_msg']",
+        "input_contenteditable": "//div[@id='contenteditablediv']",
+        "input_textarea_id": "//textarea[@id='message-to-send']",
+        "input_class_write_msg": "//input[@class='write_msg msg_content']",
+        "input_in_input_msg_write": "//div[@class='input_msg_write']//input",
+        "input_textarea_general": "//div[contains(@class, 'message-input')]//textarea",
+        "input_input_general": "//div[contains(@class, 'message-input')]//input",
+        "input_any_contenteditable": "//*[@contenteditable='true']",
+        "input_any_textarea": "//textarea",
+        "input_any_text": "//input[@type='text']",
+        "send_button_id": "//button[@id='btn-chat']",
+        "send_button_class_msg": "//button[contains(@class, 'msg_send_btn')]",
+        "send_button_class_send": "//button[contains(@class, 'send')]",
+        "send_button_div": "//div[contains(@class, 'send-button')]",
+        "send_button_icon_plane": "//i[contains(@class, 'fa-paper-plane')]/..",
+        "send_button_icon_send": "//i[contains(@class, 'fa-send')]/..",
+        "send_button_onclick_button": "//button[contains(@onclick, 'send')]",
+        "send_button_onclick_link": "//a[contains(@onclick, 'send')]",
+        "send_button_submit": "//input[@type='submit']",
+        "send_button_text_exact": "//button[contains(text(), 'Send')]",
+        "send_button_text_contains": "//button[contains(., 'Send')]"
+    },
+    "context_check": {
+        "chat_view_indicator_class": "//div[contains(@class, 'chat')]",
+        "message_view_indicator_class": "//div[contains(@class, 'message')]"
+    }
+}
