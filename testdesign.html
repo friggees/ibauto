@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatib Bot Dashboard [Redesign]</title>
+    <style>
+        :root {
+            --bg-color: #1a1d21; /* Very dark grey-blue */
+            --card-bg-color: #2c3035; /* Slightly lighter grey-blue */
+            --text-color: #e0e0e0; /* Light grey */
+            --text-muted-color: #a0a0a0; /* Dimmer grey */
+            --border-color: #40454a;
+            --primary-color: #00bcd4; /* Teal accent */
+            --primary-hover-color: #00acc1;
+            --danger-color: #e57373; /* Softer red */
+            --danger-hover-color: #ef5350;
+            --success-color: #81c784; /* Softer green */
+            --warning-color: #fff176; /* Softer yellow */
+            --info-color: #64b5f6; /* Softer blue */
+            --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --monospace-font: 'Consolas', 'Courier New', monospace;
+        }
+
+        body {
+            font-family: var(--font-family);
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        .dashboard-container {
+            display: flex;
+            gap: 20px;
+            max-width: 1600px; /* Limit overall width */
+            margin: 0 auto; /* Center the container */
+        }
+
+        .main-column {
+            flex: 3; /* Takes up more space */
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .sidebar-column {
+            flex: 2; /* Takes up less space */
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .card {
+            background-color: var(--card-bg-color);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .card h2 {
+            color: var(--text-color);
+            margin-top: 0;
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            font-size: 1.3em;
+            font-weight: 600;
+        }
+
+        .card h3 {
+            color: var(--text-color);
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+            font-weight: 500;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: var(--text-muted-color);
+            font-size: 0.9em;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        textarea,
+        select {
+            width: 100%; /* Full width within container */
+            padding: 10px;
+            margin-bottom: 15px; /* Spacing below inputs */
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--bg-color); /* Match body background */
+            color: var(--text-color);
+            box-sizing: border-box; /* Include padding in width */
+            font-size: 0.95em;
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(0, 188, 212, 0.3);
+        }
+
+        textarea {
+            min-height: 120px;
+            font-family: var(--monospace-font);
+            resize: vertical;
+        }
+
+        input[type="checkbox"] {
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        .checkbox-label {
+            display: inline-block;
+            vertical-align: middle;
+            margin-bottom: 15px; /* Align with other inputs */
+        }
+
+        small {
+            display: block;
+            margin-top: -10px; /* Pull closer to input */
+            margin-bottom: 15px;
+            color: var(--text-muted-color);
+            font-size: 0.85em;
+        }
+
+        button, input[type="submit"] {
+            background-color: var(--primary-color);
+            color: #fff; /* White text on primary */
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+            margin-right: 10px;
+            font-size: 1em;
+            transition: background-color 0.2s ease;
+        }
+
+        button:hover, input[type="submit"]:hover {
+            background-color: var(--primary-hover-color);
+        }
+
+        button.stop, button.stop-single-bot {
+            background-color: var(--danger-color);
+        }
+        button.stop:hover, button.stop-single-bot:hover {
+            background-color: var(--danger-hover-color);
+        }
+
+        button:disabled {
+            background-color: #555;
+            color: #999;
+            cursor: not-allowed;
+        }
+
+        /* Specific button styles */
+        button.stop-single-bot {
+             padding: 5px 10px;
+             font-size: 0.9em;
+             margin-top: 0;
+             margin-left: 10px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px 20px; /* Row gap, Column gap */
+        }
+
+        .form-group {
+            margin-bottom: 0; /* Remove default bottom margin */
+        }
+        .form-group label {
+            margin-bottom: 5px;
+        }
+        .form-group input, .form-group textarea {
+            margin-bottom: 0; /* Remove default bottom margin */
+        }
+        .form-group small {
+            margin-top: 5px; /* Add space above small text */
+            margin-bottom: 0;
+        }
+
+        .span-2 { /* Utility class for grid items spanning 2 columns */
+            grid-column: span 2;
+        }
+
+        /* Stats & Status */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+        .stat-item p {
+            margin: 0;
+            color: var(--text-muted-color);
+            font-size: 0.9em;
+        }
+        .stat-item span {
+            display: block;
+            font-size: 1.4em;
+            font-weight: bold;
+            color: var(--text-color);
+        }
+
+        /* Active Bots List */
+        #active-bots-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            max-height: 150px; /* Limit height */
+            overflow-y: auto; /* Add scroll if needed */
+        }
+        #active-bots-list li {
+            padding: 5px 0;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+         #active-bots-list li:last-child {
+            border-bottom: none;
+        }
+        #active-bots-list span {
+            margin-right: 10px;
+        }
+
+        /* Log Viewer */
+        #log-output {
+            background-color: #111; /* Even darker for logs */
+            color: #ccc;
+            padding: 15px;
+            border-radius: 4px;
+            height: 300px;
+            overflow-y: scroll;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: var(--monospace-font);
+            font-size: 0.9em;
+            margin-top: 10px;
+            border: 1px solid var(--border-color);
+        }
+        .log-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .log-controls label { margin-bottom: 0; }
+        .log-controls select { width: auto; flex-grow: 1; margin-bottom: 0; }
+
+        /* Flash Messages */
+        .flash-messages { list-style: none; padding: 0; margin: 0 0 20px 0; }
+        .flash-messages li {
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            border: 1px solid transparent;
+            color: var(--bg-color); /* Dark text on light background */
+        }
+        .flash-messages .success { background-color: var(--success-color); border-color: darken(var(--success-color), 10%); }
+        .flash-messages .error { background-color: var(--danger-color); border-color: darken(var(--danger-color), 10%); }
+        .flash-messages .warning { background-color: var(--warning-color); border-color: darken(var(--warning-color), 10%); }
+        .flash-messages .info { background-color: var(--info-color); border-color: darken(var(--info-color), 10%); }
+
+        /* Tooltip styling */
+        .tooltip-icon {
+            cursor: help;
+            border: 1px solid var(--text-muted-color);
+            border-radius: 50%;
+            padding: 0 6px;
+            display: inline-block;
+            margin-left: 5px;
+            font-size: 0.8em;
+            color: var(--text-muted-color);
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Flash Messages Area -->
+    <!-- Example Flash Message (remove in actual implementation) -->
+    <ul class="flash-messages">
+        <li class="success">Configuration saved successfully!</li>
+        <li class="error">Failed to start bot XYZ.</li>
+    </ul>
+    <!-- {% with messages = get_flashed_messages(with_categories=true) %} ... {% endwith %} -->
+
+
+    <div class="dashboard-container">
+
+        <!-- Main Content Column (Configuration) -->
+        <div class="main-column">
+            <div class="card">
+                <h2>Configuration</h2>
+                <!-- <form action="{{ url_for('save_config_route') }}" method="POST"> -->
+                <form action="#" method="POST">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="adspower_api_key">AdsPower API Key</label>
+                            <input type="text" id="adspower_api_key" name="adspower_api_key" value="YOUR_API_KEY_HERE">
+                        </div>
+                        <div class="form-group">
+                            <label for="adspower_api_host">AdsPower API Host</label>
+                            <input type="text" id="adspower_api_host" name="adspower_api_host" value="http://local.adspower.net:50325" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="onlyfans_link">OnlyFans Link</label>
+                            <input type="text" id="onlyfans_link" name="onlyfans_link" value="https://onlyfans.com/yourprofile" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="max_concurrent_browsers">Max Concurrent Browsers</label>
+                            <input type="number" id="max_concurrent_browsers" name="max_concurrent_browsers" value="5" min="1" required>
+                        </div>
+                        <div class="form-group span-2"> <!-- Span checkbox area -->
+                             <label for="run_headless" class="checkbox-label">
+                                <input type="checkbox" id="run_headless" name="run_headless" value="true" checked>
+                                Run Headless (AdsPower API must support this)
+                            </label>
+                            <small>Check this to attempt starting browsers without a visible window.</small>
+                        </div>
+                         <div class="form-group span-2">
+                            <label for="adspower_profile_ids">AdsPower Profile IDs (One per line)</label>
+                            <textarea id="adspower_profile_ids" name="adspower_profile_ids" required placeholder="profile_id1&#10;profile_id2&#10;...">profile_abc123
+profile_def456</textarea>
+                            <small>Enter each Profile ID on a new line.</small>
+                        </div>
+                        <div class="form-group span-2">
+                            <label for="usernames">Usernames to Try (One per line)</label>
+                            <textarea id="usernames" name="usernames" placeholder="username1&#10;username2&#10;...">coolbot_1
+coolbot_2</textarea>
+                            <small>Usernames the bot should attempt during registration.</small>
+                        </div>
+                    </div>
+
+                    <h3>Registration Defaults</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="reg_age">Default Age</label>
+                            <input type="number" id="reg_age" name="reg_age" value="22" min="18" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="reg_country">Default Country Code</label>
+                            <input type="text" id="reg_country" name="reg_country" value="US" placeholder="e.g., US, GB, SE" required>
+                        </div>
+                        <div class="form-group span-2">
+                            <label for="reg_city_options">Default City Options (One per line)
+                                <span class="tooltip-icon" title="Examples:&#10;US: New York, Los Angeles&#10;GB: London, Manchester&#10;SE: Stockholm, Gothenburg">?</span>
+                            </label>
+                            <textarea id="reg_city_options" name="reg_city_options" required placeholder="City1&#10;City2&#10;...">New York
+Los Angeles</textarea>
+                        </div>
+                    </div>
+
+                    <h3>Message Phases (One per line, use {onlyfans_link})</h3>
+                    <textarea id="messages" name="messages" required>Hello there!
+Check out my profile: {onlyfans_link}
+Hope you like it!
+Let me know what you think.
+Talk soon!</textarea>
+                    <small>The last 3 messages are sent rapidly after a delay.</small>
+
+                    <input type="submit" value="Save Configuration & Messages">
+                </form>
+            </div>
+        </div>
+
+        <!-- Sidebar Column (Controls, Stats, Logs) -->
+        <div class="sidebar-column">
+            <!-- Bot Control Card -->
+            <div class="card">
+                <h2>Bot Control</h2>
+                <div>
+                    <!-- <form action="{{ url_for('start_bots_route') }}" method="POST" style="display: inline;"> -->
+                    <form action="#" method="POST" style="display: inline;">
+                        <button type="submit" id="start-button">Start Bots</button>
+                    </form>
+                    <!-- <form action="{{ url_for('stop_bots_route') }}" method="POST" style="display: inline;"> -->
+                    <form action="#" method="POST" style="display: inline;">
+                        <button type="submit" class="stop" id="stop-button" disabled>Stop Bots</button>
+                    </form>
+                </div>
+                <div style="margin-top: 15px;">
+                    <p style="margin-bottom: 5px;">Status: <span id="bot-status" style="font-weight: bold;">Stopped</span></p>
+                    <p style="margin: 0;">Active Processes: <span id="active-processes">0</span> / <span id="target-processes">5</span></p>
+                </div>
+                 <div style="margin-top: 15px;">
+                    <label>Active Bots:</label>
+                    <ul id="active-bots-list">
+                        <!-- Example Active Bot (remove in actual implementation) -->
+                        <li>
+                            <span>profile_abc123</span>
+                            <button class="stop stop-single-bot" data-profile-id="profile_abc123">Stop</button>
+                        </li>
+                        <li>
+                            <span>profile_def456</span>
+                            <button class="stop stop-single-bot" data-profile-id="profile_def456">Stop</button>
+                        </li>
+                        <!-- Populated by JavaScript -->
+                        <!-- <li>None</li> -->
+                    </ul>
+                </div>
+                 <div style="margin-top: 15px;">
+                    <label>All Known Bot IDs (for log selection):</label>
+                    <p id="all-known-bots" style="color: var(--text-muted-color); font-size: 0.9em; margin-top: 5px;">profile_abc123, profile_def456, profile_ghi789</p>
+                </div>
+            </div>
+
+            <!-- Statistics Card -->
+            <div class="card">
+                <h2>Statistics</h2>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <p>Total Links Sent</p>
+                        <span id="total-links">1234</span>
+                    </div>
+                    <div class="stat-item">
+                        <p>Conversations Started</p>
+                        <span id="conversations-started">56</span>
+                    </div>
+                    <!-- Add more stats here if needed -->
+                </div>
+            </div>
+
+            <!-- Bot Logs Viewer Card -->
+            <div class="card">
+                <h2>Bot Logs</h2>
+                <div class="log-controls">
+                    <label for="bot-log-select">Select Bot ID:</label>
+                    <select id="bot-log-select">
+                        <option value="">-- Select a Bot --</option>
+                        <!-- Example Options (remove in actual implementation) -->
+                        <option value="profile_abc123">profile_abc123</option>
+                        <option value="profile_def456">profile_def456</option>
+                        <option value="profile_ghi789">profile_ghi789</option>
+                        <!-- Options will be populated by JavaScript -->
+                    </select>
+                </div>
+                <pre id="log-output">[2025-04-29 15:00:01] Bot profile_abc123: Initializing...
+[2025-04-29 15:00:05] Bot profile_abc123: Registration successful.
+[2025-04-29 15:00:10] Bot profile_abc123: Starting chat logic.
+[2025-04-29 15:00:15] Bot profile_def456: Initializing...
+Select a bot ID to view logs...</pre>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Include your existing JavaScript here, adapting selectors if necessary -->
+    <!-- <script> ... </script> -->
+
+</body>
+</html>

@@ -154,7 +154,8 @@ def run_bot_instance(profile_id: str, stats_queue: multiprocessing.Queue, log_qu
                 ]
                 for xpath in potential_xpaths:
                     try:
-                        consent_button = WebDriverWait(drv, 2).until(
+                        # Change timeout from 2 to 1 second per XPath attempt
+                        consent_button = WebDriverWait(drv, 1).until(
                             EC.element_to_be_clickable((By.XPATH, xpath)))
                         if consent_button:
                             _log(

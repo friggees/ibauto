@@ -587,8 +587,8 @@ def send_message(driver, message_text: str, log_queue: multiprocessing.Queue, pr
     except Exception as clear_err:
         _log(f"Warning: Could not clear input field: {clear_err}")
 
-    # Pass log info
-    if not send_keys_to_element(input_field, message_text, log_queue=log_queue, profile_id=profile_id):
+    # Pass log info AND driver
+    if not send_keys_to_element(driver, input_field, message_text, log_queue=log_queue, profile_id=profile_id):
         _log("Send message failed: send_keys_to_element returned False.")
         return False
 
@@ -617,8 +617,8 @@ def send_message(driver, message_text: str, log_queue: multiprocessing.Queue, pr
     try:
         # Ensure input field is still valid before sending Enter
         if input_field.is_displayed() and input_field.is_enabled():
-            # Pass log info
-            if send_keys_to_element(input_field, Keys.ENTER, log_queue=log_queue, profile_id=profile_id):
+            # Pass log info AND driver
+            if send_keys_to_element(driver, input_field, Keys.ENTER, log_queue=log_queue, profile_id=profile_id):
                 _log("Message sent via Enter key.")
                 return True
             else:
@@ -696,6 +696,13 @@ def handle_chat_cycle(driver, profile_id, stats_queue, log_queue: multiprocessin
         cycle_count += 1
         # Use _log
         _log(f"\n[Cycle: {cycle_count}] Starting interaction cycle...")
+
+        # --- Calculate phase thresholds ---
+        total_phases = len(messages)
+        # Start sequential sending at the (N-3)th phase if N >= 5
+        sequential_start_phase = total_phases - \
+            3 if total_phases >= 5 else -1  # -1 if not applicable
+        # --- End phase thresholds ---
 
         current_user_id = None  # Reset for this cycle
         try:
@@ -851,19 +858,39 @@ def handle_chat_cycle(driver, profile_id, stats_queue, log_queue: multiprocessin
             #    - Wait if final message
 
             # --- Check if reply is needed and received ---
-            should_check_reply = 0 < current_phase <= (
-                final_message_index - 3)  # Check reply for intermediate phases
+            # Log before check
+            _log(
+                f"[Cycle: {cycle_count}] Preparing to check reply/send message for User ID: {user_id_str}, Phase: {current_phase}")
 
-            if should_check_reply:
+            # Determine if a reply check is needed based on the new rules
+            reply_check_needed = False
+            if total_phases <= 4:
+                # For 4 or fewer phases, check reply for phases > 0
+                reply_check_needed = 0 < current_phase < total_phases
+            elif total_phases >= 5:
+                # For 5 or more phases, check reply only for phases before the sequential start
+                reply_check_needed = 0 < current_phase < sequential_start_phase
+
+            _log(f"[Cycle: {cycle_count}] Total Phases: {total_phases}, Seq Start Phase: {sequential_start_phase}, Current Phase: {current_phase}, Reply Check Needed: {reply_check_needed}")
+
+            if reply_check_needed:
                 # Use _log
                 _log(
-                    f"[Cycle: {cycle_count}] Checking for reply from {current_user_id} (currently phase {current_phase})...")
+                    f"[Cycle: {cycle_count}] Reply check needed for phase {current_phase}. Checking incoming messages...")
                 # Pass log_queue and profile_id
+                # Log before count
+                _log(
+                    f"[Cycle: {cycle_count}] Calling count_messages (incoming=True)...")
                 num_incoming_now = count_messages(
                     driver, incoming=True, log_queue=log_queue, profile_id=profile_id)
+                # Log after count
+                _log(
+                    f"[Cycle: {cycle_count}] count_messages (incoming=True) returned: {num_incoming_now}. Last recorded: {last_recorded_incoming}")
 
                 if num_incoming_now <= last_recorded_incoming:
-                    _log(f"[Cycle: {cycle_count}] No new incoming message detected from {current_user_id} since last send (current: {num_incoming_now}, last recorded: {last_recorded_incoming}). Skipping send for this cycle.")  # Use _log
+                    # Use _log
+                    _log(
+                        f"[Cycle: {cycle_count}] No new incoming message detected from {current_user_id} since last send. Skipping send for this cycle.")
                     # Go back to inbox implicitly by continuing the main loop
                     time.sleep(random.uniform(1, 3))
                     continue  # Skip sending to this user, find next user
@@ -871,15 +898,30 @@ def handle_chat_cycle(driver, profile_id, stats_queue, log_queue: multiprocessin
                     # Use _log
                     _log(
                         f"[Cycle: {cycle_count}] New incoming message detected ({num_incoming_now} > {last_recorded_incoming}). Proceeding to send phase {current_phase}.")
+            # --- End Reply Check ---
 
             # --- Send the message ---
+            # Ensure current_phase is valid index
+            if current_phase >= total_phases:
+                _log(
+                    f"[Cycle: {cycle_count}] Error: current_phase {current_phase} is out of bounds for messages list (length {total_phases}). Skipping send.")
+                continue  # Skip to next cycle if phase is invalid
+
             message_to_send = messages[current_phase]
             # Use _log
             _log(
-                f"[Cycle: {cycle_count}] Sending phase {current_phase} message to {current_user_id}: '{message_to_send[:50]}...'")
+                f"[Cycle: {cycle_count}] Preparing to send phase {current_phase} message to {current_user_id}: '{message_to_send[:50]}...'")
 
             # Pass log_queue and profile_id to send_message
-            if send_message(driver, message_to_send, log_queue, profile_id):
+            # Log before send
+            _log(f"[Cycle: {cycle_count}] Calling send_message...")
+            send_success = send_message(
+                driver, message_to_send, log_queue, profile_id)
+            # Log after send
+            _log(
+                f"[Cycle: {cycle_count}] send_message returned: {send_success}")
+
+            if send_success:
                 # --- Update State ---
                 phase_just_sent = current_phase  # Store before incrementing
                 new_phase = current_phase + 1
@@ -929,18 +971,66 @@ def handle_chat_cycle(driver, profile_id, stats_queue, log_queue: multiprocessin
                             f"Error putting 'conversation_started' in stats_queue: {q_err}")
                 # --- END NEW ---
 
-                # --- Conditional Wait for Final Messages ---
-                # Check if the phase *just sent* was one of the last three
-                if phase_just_sent >= final_message_index - 2:
-                    # Use _log
+                # --- Post-Send Logic: Phase Update & Sequential Sending ---
+                if total_phases >= 5 and phase_just_sent >= sequential_start_phase:
+                    # --- Start or continue sequential sending ---
                     _log(
-                        f"[Cycle: {cycle_count}] Sent final phase message ({phase_just_sent}). Waiting 10 seconds...")
-                    time.sleep(10)
-                # else: # Optional: Add a smaller random delay for non-final messages?
-                #     time.sleep(random.uniform(1, 3)) # Example small delay
+                        f"[Cycle: {cycle_count}] Phase {phase_just_sent} is part of the final sequence (>= {sequential_start_phase}). Starting/Continuing sequential send.")
+                    # Loop from the *next* phase up to the last one
+                    for sequential_phase in range(phase_just_sent + 1, total_phases):
+                        _log(
+                            f"[Cycle: {cycle_count}] [SEQ] Attempting to send sequential phase {sequential_phase}...")
+                        next_message = messages[sequential_phase]
+                        _log(
+                            f"[Cycle: {cycle_count}] [SEQ] Message: '{next_message[:50]}...'")
+
+                        # Pass log_queue and profile_id
+                        seq_send_success = send_message(
+                            driver, next_message, log_queue, profile_id)
+                        _log(
+                            f"[Cycle: {cycle_count}] [SEQ] send_message for phase {sequential_phase} returned: {seq_send_success}")
+
+                        if seq_send_success:
+                            # Update state for the phase just sent sequentially
+                            user_state["message_phase"] = sequential_phase + 1
+                            num_incoming_after_seq_send = count_messages(
+                                driver, incoming=True, log_queue=log_queue, profile_id=profile_id)
+                            user_state["user_incoming_message_count_at_last_send"] = num_incoming_after_seq_send
+                            user_state["last_interaction"] = time.time()
+                            _log(
+                                f"[Cycle: {cycle_count}] [SEQ] Updated phase to {sequential_phase + 1}, recorded incoming {num_incoming_after_seq_send}")
+
+                            # Handle link sent stat if this was the final message
+                            if sequential_phase == final_message_index:  # final_message_index is the index of the link message
+                                local_sent_links_count += 1
+                                _log(
+                                    f"[Cycle: {cycle_count}] [SEQ] Final link (phase {sequential_phase}) sent sequentially to {current_user_id}! Total sent: {local_sent_links_count}")
+                                try:
+                                    stats_queue.put(
+                                        {"type": "link_sent", "profile_id": profile_id})
+                                except Exception as q_err:
+                                    _log(
+                                        f"Error putting 'link_sent' in stats_queue: {q_err}")
+
+                            # Pause 5 seconds *unless* it was the very last message
+                            if sequential_phase < total_phases - 1:
+                                _log(
+                                    f"[Cycle: {cycle_count}] [SEQ] Pausing 5 seconds after sending phase {sequential_phase}...")
+                                time.sleep(5)
+                        else:
+                            _log(
+                                f"[Cycle: {cycle_count}] [SEQ] Failed to send sequential phase {sequential_phase}. Breaking sequence for user {current_user_id}.")
+                            break  # Stop sequential sending for this user if one fails
+                    # After the loop (or break), the main loop will continue to the next cycle
+                else:
+                    # --- Normal phase update (not in sequential block or total_phases < 5) ---
+                    # State was already updated before this block for the initial send_success
+                    _log(
+                        f"[Cycle: {cycle_count}] Phase {phase_just_sent} sent. Not starting/continuing sequential send.")
+                    # No extra wait needed here, loop continues naturally
 
             else:
-                # Handle failed send
+                # Handle failed send (Original logic)
                 # Use _log
                 _log(
                     f"[Cycle: {cycle_count}] Failed to send message for phase {current_phase} to {current_user_id}.")

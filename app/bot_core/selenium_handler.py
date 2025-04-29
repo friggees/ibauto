@@ -120,6 +120,15 @@ def start_adspower_browser(profile_id: str, log_queue: Optional[multiprocessing.
         try:
             driver = webdriver.Chrome(service=service, options=chrome_options)
             _log(f"WebDriver successfully connected to profile {profile_id}")
+            # Maximize window regardless of headless mode
+            try:
+                _log(
+                    f"Attempting to maximize browser window for profile {profile_id}...")
+                driver.maximize_window()
+                _log(f"Browser window maximized for profile {profile_id}.")
+            except Exception as max_err:
+                _log(
+                    f"Warning: Could not maximize window for profile {profile_id}: {max_err}")
             return driver
         except Exception as e:
             _log(
@@ -260,8 +269,13 @@ def click_element(element, log_queue: Optional[multiprocessing.Queue] = None, pr
         return False
 
 
-def send_keys_to_element(element, text: str, log_queue: Optional[multiprocessing.Queue] = None, profile_id: Optional[str] = None):
-    """Sends keys to a Selenium element, handling potential exceptions. Optionally logs actions."""
+# Add 'driver' parameter
+def send_keys_to_element(driver, element, text: str, log_queue: Optional[multiprocessing.Queue] = None, profile_id: Optional[str] = None):
+    """
+    Sends keys to a Selenium element, handling potential exceptions.
+    Tries standard send_keys first, then falls back to JavaScript if needed.
+    Optionally logs actions.
+    """
     # Define _log locally for this function
     def _log(message: str):
         if log_queue and profile_id:
@@ -277,16 +291,34 @@ def send_keys_to_element(element, text: str, log_queue: Optional[multiprocessing
     if not element:
         _log("Cannot send keys to None element.")
         return False
+
+    # Attempt 1: Standard send_keys
     try:
         element.send_keys(text)
-        # _log(f"Sent keys '{text[:20]}...' to element: {element.tag_name}") # Optional detailed log
+        _log(f"Successfully sent keys '{text[:20]}...' using standard method.")
         return True
     except StaleElementReferenceException:
         _log(
-            f"Error sending keys '{text[:20]}...': StaleElementReferenceException")
-        return False
+            f"Standard send_keys failed for '{text[:20]}...': StaleElementReferenceException. Trying JS fallback.")
     except Exception as e:
-        _log(f"Error sending keys '{text[:20]}...' to element: {e}")
+        _log(
+            f"Standard send_keys failed for '{text[:20]}...': {e}. Trying JS fallback.")
+
+    # Attempt 2: JavaScript fallback
+    _log(f"Attempting JavaScript fallback to set value for '{text[:20]}...'")
+    try:
+        # Ensure driver is available
+        if not driver:
+            _log("JavaScript fallback failed: Driver instance not provided.")
+            return False
+        driver.execute_script(
+            "arguments[0].value = arguments[1];", element, text)
+        # Trigger input event if needed (sometimes required for frameworks like React/Vue)
+        # driver.execute_script("arguments[0].dispatchEvent(new Event('input', { bubbles: true }));", element)
+        _log(f"Successfully set value '{text[:20]}...' using JavaScript.")
+        return True
+    except Exception as js_e:
+        _log(f"JavaScript fallback also failed for '{text[:20]}...': {js_e}")
         return False
 
 
