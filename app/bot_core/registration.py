@@ -104,11 +104,11 @@ def attempt_registration(driver, username, age, country_code, city, log_queue: m
             _log(f"Warning: Failed to clear username field: {clear_err}")
         _log(
             f"[REG_ATTEMPT_DEBUG] Found username field. Attempting to send keys: '{username}'")
-        # Pass log info
-        if not send_keys_to_element(username_field, username, log_queue=log_queue, profile_id=profile_id):
+        # Pass log info AND driver instance
+        if not send_keys_to_element(driver, username_field, username, log_queue=log_queue, profile_id=profile_id):
             _log(
                 f"[REG_ATTEMPT_DEBUG] send_keys_to_element FAILED for username: '{username}'")
-            _log("Failed to enter username.")
+            _log("[REG_ERROR] Failed to enter username.")
             return False
         else:
             _log(
@@ -119,27 +119,45 @@ def attempt_registration(driver, username, age, country_code, city, log_queue: m
         return False  # Explicitly return False if field not found
 
     # Select Age
-    # Updated call with log_queue and profile_id
-    if not select_option_by_value(driver, XPATHS_REGISTRATION["age_select"], age, log_queue=log_queue, profile_id=profile_id):
-        _log("Failed to select age.")
-        return False
+    _log("[REG_ATTEMPT_DEBUG] Attempting to select age...")
+    age_selected = select_option_by_value(
+        driver, XPATHS_REGISTRATION["age_select"], age, log_queue=log_queue, profile_id=profile_id)
+    _log(
+        f"[REG_ATTEMPT_DEBUG] select_option_by_value (Age) returned: {age_selected}")
+    if not age_selected:
+        # Log warning but DO NOT return False
+        _log("[REG_WARN] Failed to select age. Continuing attempt...")
+    else:
+        _log("[REG_ATTEMPT_DEBUG] Age selected successfully.")
 
     # Select Country
-    # Updated call with log_queue and profile_id
-    if not select_option_by_value(driver, XPATHS_REGISTRATION["country_select"], country_code, log_queue=log_queue, profile_id=profile_id):
-        _log("Failed to select country.")
-        return False
+    _log("[REG_ATTEMPT_DEBUG] Attempting to select country...")
+    country_selected = select_option_by_value(
+        driver, XPATHS_REGISTRATION["country_select"], country_code, log_queue=log_queue, profile_id=profile_id)
+    _log(
+        f"[REG_ATTEMPT_DEBUG] select_option_by_value (Country) returned: {country_selected}")
+    if not country_selected:
+        # Log warning but DO NOT return False
+        _log("[REG_WARN] Failed to select country. Continuing attempt...")
+    else:
+        _log("[REG_ATTEMPT_DEBUG] Country selected successfully.")
 
     # Select City - Needs a small delay sometimes for city options to populate based on country
+    _log("[REG_ATTEMPT_DEBUG] Waiting 1s before selecting city...")
     time.sleep(1)
-    # Updated call with log_queue and profile_id
-    if not select_option_by_value(driver, XPATHS_REGISTRATION["city_select"], city, log_queue=log_queue, profile_id=profile_id):
+    _log(f"[REG_ATTEMPT_DEBUG] Attempting to select city '{city}'...")
+    city_selected = select_option_by_value(
+        driver, XPATHS_REGISTRATION["city_select"], city, log_queue=log_queue, profile_id=profile_id)
+    _log(
+        f"[REG_ATTEMPT_DEBUG] select_option_by_value (City) returned: {city_selected}")
+    if not city_selected:
+        # Log warning but DO NOT return False
         _log(
-            f"Failed to select city '{city}'. It might not be available for country '{country_code}'.")
-        # Decide how to handle this - maybe try another city? For now, fail.
-        return False
+            f"[REG_WARN] Failed to select city '{city}'. It might not be available for country '{country_code}'. Continuing attempt...")
+    # else: # No need for else log here, just continue
 
-    # Click form area to potentially enable button
+    # Click form area to potentially enable button (Continue regardless of dropdown success)
+    _log("[REG_ATTEMPT_DEBUG] Attempting to click form area...")
     # Pass log info
     form_area = find_element_with_wait(
         driver, By.XPATH, XPATHS_REGISTRATION["form_area_to_click"], timeout=5, log_queue=log_queue, profile_id=profile_id)
@@ -173,31 +191,9 @@ def attempt_registration(driver, username, age, country_code, city, log_queue: m
         _log("[REG_ERROR] Failed to click start chat button.")
         return False
 
-    _log("Registration form submitted. Checking if login was successful...")
-    # Add a small delay to allow page transition
-    time.sleep(3)  # Increased delay slightly
-
-    # Check if we are still on the registration page by looking for the username input
-    try:
-        # Use a short timeout - if it's found quickly, we failed.
-        still_on_reg_page = find_element_with_wait(
-            driver, By.XPATH, XPATHS_REGISTRATION["username_input"], timeout=3, log_queue=log_queue, profile_id=profile_id)
-        if still_on_reg_page:
-            _log("[REG_ERROR] Login failed: Username input field is still present after clicking 'Start Chat Now'.")
-            # Optional: Check for specific error messages here if needed in the future
-            return False  # Indicate login failure
-        else:
-            # This case should ideally not happen if find_element_with_wait returns None on timeout
-            _log("[REG_WARN] Username input field check returned unexpected non-None value without timeout. Assuming login failed.")
-            return False
-    except TimeoutException:
-        # Username input NOT found - this is the expected outcome for successful login/navigation
-        _log("[REG] Login successful: Navigated away from registration page (username input not found).")
-        return True  # Indicate successful navigation away from registration
-    except Exception as e:
-        _log(
-            f"[REG_ERROR] Unexpected error checking for username input after login attempt: {e}")
-        return False  # Indicate failure due to unexpected error
+    _log("Registration form submitted (Start Chat Now clicked).")
+    # Verification moved to handle_registration_process
+    return True  # Indicate the click attempt itself was successful
 
 
 def handle_registration_process(driver, assigned_city: Optional[str] = None, usernames_list: Optional[List[str]] = None, log_queue: Optional[multiprocessing.Queue] = None, profile_id: Optional[str] = None):
@@ -261,58 +257,169 @@ def handle_registration_process(driver, assigned_city: Optional[str] = None, use
             _log(
                 f"\nTrying username from list: {username} with city: {city}...")
             # Updated call with keyword args for log_queue and profile_id
+            # attempt_registration now only returns True if the click was successful
             if attempt_registration(driver, username, age, country_code, city, log_queue=log_queue, profile_id=profile_id):
-                # --- Check for immediate errors on the registration page ---
+                _log(
+                    f"Registration attempt submitted for '{username}'. Verifying navigation...")
+                # --- NEW Verification Logic ---
+                inbox_xpath = "//li[@onclick='inbox()']"
                 try:
-                    # Check for username error first
-                    # Updated call with log_queue and profile_id
-                    error_element = find_element_with_wait(
-                        driver, By.XPATH, XPATHS_REGISTRATION["username_error_text"], timeout=2, log_queue=log_queue, profile_id=profile_id)
-                    if error_element:
-                        _log(
-                            f"Username from list '{username}' failed (restricted/taken). Trying next.")
-                        continue  # Try next username in the list
-
-                    # If no username error, check for captcha error
-                    try:
-                        # Updated call with log_queue and profile_id
-                        captcha_error = find_element_with_wait(
-                            driver, By.XPATH, "//div[@class='alert alert-danger']", timeout=1, log_queue=log_queue, profile_id=profile_id)
-                        if captcha_error and "captcha" in captcha_error.text.lower():
-                            _log(
-                                f"Registration for '{username}' failed due to 'Invalid Captcha' error. Retrying.")
-                            continue  # Try next username in the list
-                    except TimeoutException:
-                        pass  # Captcha error not found quickly, assume okay for now
-                    except Exception as cap_err:
-                        _log(
-                            f"Error checking for captcha error for '{username}': {cap_err}. Assuming okay.")
-
-                    # If neither specific error was found quickly, assume submission was accepted
+                    # Wait generously for the inbox button to appear
                     _log(
-                        f"[REG_DEBUG] Registration submission accepted for username from list: {username}. (Final success depends on subsequent checks).")
-                    list_attempt_successful = True
-                    return True  # Return True indicating submission OK for this username
+                        f"Waiting up to 20s for Inbox button ({inbox_xpath})...")
+                    inbox_button = find_element_with_wait(
+                        driver, By.XPATH, inbox_xpath, timeout=20, log_queue=log_queue, profile_id=profile_id)
+                    if inbox_button:
+                        _log(
+                            f"[REG_SUCCESS] Inbox button found for username '{username}'. Registration successful.")
+
+                        # --- NEW: Check for Ad URL Fragment ---
+                        try:
+                            current_url = driver.current_url
+                            _log(
+                                f"Checking current URL for ad fragment: {current_url}")
+                            if "#google_vignette" in current_url:
+                                _log(
+                                    "Detected ad URL fragment (#google_vignette) immediately after registration success. Refreshing...")
+                                driver.refresh()
+                                _log(
+                                    "Waiting for Inbox button again after ad refresh (up to 30s)...")
+                                # Need WebDriverWait and EC here (import might be needed if not already global)
+                                from selenium.webdriver.support.ui import WebDriverWait
+                                from selenium.webdriver.support import expected_conditions as EC
+                                try:
+                                    WebDriverWait(driver, 30).until(
+                                        # Use inbox_xpath defined earlier
+                                        EC.element_to_be_clickable(
+                                            (By.XPATH, inbox_xpath))
+                                    )
+                                    _log("Inbox button found after ad refresh.")
+                                except TimeoutException:
+                                    _log(
+                                        "[REG_ERROR] Inbox button did NOT reappear after ad refresh. Registration might be compromised.")
+                                    # Returning False here will cause the loop to try the next username, which might be okay.
+                                    continue  # Try next username if refresh fails to restore state
+                                except Exception as ad_refresh_wait_err:
+                                    _log(
+                                        f"[REG_ERROR] Error waiting for inbox after ad refresh: {ad_refresh_wait_err}")
+                                    continue  # Try next username if refresh fails
+                            else:
+                                _log(
+                                    "No ad URL fragment detected after registration.")
+                        except Exception as ad_check_err:
+                            _log(
+                                f"[REG_WARN] Error checking for ad URL fragment after registration: {ad_check_err}")
+                        # --- END Ad Check ---
+
+                        list_attempt_successful = True  # Mark success for the list loop logic
+                        return True  # Exit handle_registration_process successfully
+                    else:
+                        # This case should not happen if find_element_with_wait works correctly (throws TimeoutException)
+                        _log(
+                            f"[REG_WARN] Inbox button check returned non-None but falsey? Assuming not found for '{username}'.")
+                        # Proceed to check if back on registration page
 
                 except TimeoutException:
-                    # Neither error element appeared quickly. Assume submission was accepted.
                     _log(
-                        f"[REG_DEBUG] No immediate errors detected for '{username}'. Assuming submission accepted. (Final success depends on subsequent checks).")
-                    list_attempt_successful = True
-                    return True  # Return True indicating submission OK
+                        f"[REG_INFO] Inbox button not found within 20s for '{username}'. Checking if back on registration page...")
+                    # Check if we are back on the registration page
+                    try:
+                        username_field_check = find_element_with_wait(
+                            driver, By.XPATH, XPATHS_REGISTRATION["username_input"], timeout=3, log_queue=log_queue, profile_id=profile_id)
+                        if username_field_check:
+                            # Simplified: If username field is found, assume failure and retry.
+                            _log(
+                                f"[REG_FAIL] Returned to registration page for username '{username}'. Retrying next username.")
+                            continue  # Try next username in the list
+                        else:
+                            # Username field check returned falsey (shouldn't happen with find_element_with_wait)
+                            # Treat as uncertain state, proceed to final inbox check below.
+                            _log(
+                                f"[REG_WARN] Username field check returned non-None but falsey? Assuming not on reg page for '{username}'. Proceeding to final check.")
+                            # Fall through to the TimeoutException block which handles the final check
 
-                except Exception as e:
-                    # Error during the error checking itself
+                    except TimeoutException:
+                        # Username field NOT found after waiting 3s. This means we are NOT on the registration page.
+                        # Since the initial Inbox check also timed out, we are in an uncertain state.
+                        _log(
+                            f"[REG_UNCERTAIN] Not on registration page, but Inbox not found for '{username}'. Trying final Inbox check (5s)...")
+                        try:
+                            final_inbox_check = find_element_with_wait(
+                                driver, By.XPATH, inbox_xpath, timeout=5, log_queue=log_queue, profile_id=profile_id)
+                            if final_inbox_check:
+                                _log(
+                                    f"[REG_SUCCESS] Inbox button found on final check for '{username}'. Registration successful.")
+
+                                # --- NEW: Check for Ad URL Fragment (also after final check success) ---
+                                try:
+                                    current_url = driver.current_url
+                                    _log(
+                                        f"Checking current URL for ad fragment (final check): {current_url}")
+                                    if "#google_vignette" in current_url:
+                                        _log(
+                                            "Detected ad URL fragment (#google_vignette) after final registration check success. Refreshing...")
+                                        driver.refresh()
+                                        _log(
+                                            "Waiting for Inbox button again after ad refresh (up to 30s)...")
+                                        from selenium.webdriver.support.ui import WebDriverWait
+                                        from selenium.webdriver.support import expected_conditions as EC
+                                        try:
+                                            WebDriverWait(driver, 30).until(
+                                                EC.element_to_be_clickable(
+                                                    (By.XPATH, inbox_xpath))
+                                            )
+                                            _log(
+                                                "Inbox button found after ad refresh (final check).")
+                                        except TimeoutException:
+                                            _log(
+                                                "[REG_ERROR] Inbox button did NOT reappear after ad refresh (final check).")
+                                            continue  # Try next username
+                                        except Exception as ad_refresh_wait_err:
+                                            _log(
+                                                f"[REG_ERROR] Error waiting for inbox after ad refresh (final check): {ad_refresh_wait_err}")
+                                            continue  # Try next username
+                                    else:
+                                        _log(
+                                            "No ad URL fragment detected after final registration check.")
+                                except Exception as ad_check_err:
+                                    _log(
+                                        f"[REG_WARN] Error checking for ad URL fragment after final registration check: {ad_check_err}")
+                                # --- END Ad Check ---
+
+                                list_attempt_successful = True
+                                return True
+                            else:
+                                # Final check returned falsey (shouldn't happen)
+                                _log(
+                                    f"[REG_FAIL] Final Inbox check failed (returned falsey) for '{username}'. Retrying next username.")
+                                continue  # Try next username
+                        except TimeoutException:
+                            # Final check timed out
+                            _log(
+                                f"[REG_FAIL] Final Inbox check timed out for '{username}'. Retrying next username.")
+                            continue  # Try next username
+                        except Exception as e_final:
+                            # Error during final check
+                            _log(
+                                f"[REG_ERROR] Error during final Inbox check for '{username}': {e_final}. Retrying next username.")
+                            continue  # Try next username
+
+                    except Exception as e_user_check:  # Catch errors during the username field check itself
+                        _log(
+                            f"[REG_ERROR] Error checking for username input field for '{username}': {e_user_check}. Retrying next username.")
+                        continue  # Try next username
+
+                except Exception as e_inbox_check:  # Catch errors during the initial inbox check
                     _log(
-                        f"Error checking for registration errors for '{username}': {e}. Trying next.")
+                        f"[REG_ERROR] Unexpected error during initial Inbox check for '{username}': {e_inbox_check}")
                     continue  # Try next username
 
             else:
-                # attempt_registration itself returned False (e.g., couldn't find form elements)
+                # attempt_registration itself returned False (e.g., couldn't click button)
                 _log(
                     f"Attempt_registration function returned False for username '{username}'. Trying next in list.")
-                time.sleep(1)  # Liten paus innan nästa försök
-                continue  # Försök nästa namn i listan
+                time.sleep(1)  # Small pause before next attempt
+                continue  # Try next username in the list
         # Only print if loop finished without success AND the list was not empty initially
         if usernames_list and not list_attempt_successful:
             _log(
@@ -340,56 +447,163 @@ def handle_registration_process(driver, assigned_city: Optional[str] = None, use
         _log(
             f"\nRandom Username Attempt {attempt + 1}/{max_random_retries} using city: {city}...")
         # Updated call with keyword args for log_queue and profile_id
+        # attempt_registration now only returns True if the click was successful
         if attempt_registration(driver, username, age, country_code, city, log_queue=log_queue, profile_id=profile_id):
-            # --- Check for immediate errors on the registration page ---
+            _log(
+                f"Registration attempt submitted for random '{username}'. Verifying navigation...")
+            # --- NEW Verification Logic ---
+            inbox_xpath = "//li[@onclick='inbox()']"
             try:
-                # Check for username error first
-                # Updated call with log_queue and profile_id
-                error_element = find_element_with_wait(
-                    driver, By.XPATH, XPATHS_REGISTRATION["username_error_text"], timeout=2, log_queue=log_queue, profile_id=profile_id)
-                if error_element:
+                # Wait generously for the inbox button to appear
+                _log(f"Waiting up to 20s for Inbox button ({inbox_xpath})...")
+                inbox_button = find_element_with_wait(
+                    driver, By.XPATH, inbox_xpath, timeout=20, log_queue=log_queue, profile_id=profile_id)
+                if inbox_button:
                     _log(
-                        f"Random username '{username}' failed (restricted/taken). Retrying.")
-                    continue  # Try next random username
+                        f"[REG_SUCCESS] Inbox button found for random username '{username}'. Registration successful.")
 
-                # If no username error, check for captcha error
-                try:
-                    # Updated call with log_queue and profile_id
-                    captcha_error = find_element_with_wait(
-                        driver, By.XPATH, "//div[@class='alert alert-danger']", timeout=1, log_queue=log_queue, profile_id=profile_id)
-                    if captcha_error and "captcha" in captcha_error.text.lower():
+                    # --- NEW: Check for Ad URL Fragment (Random Username Loop) ---
+                    try:
+                        current_url = driver.current_url
                         _log(
-                            f"Registration for random '{username}' failed due to 'Invalid Captcha' error. Retrying.")
-                        continue  # Try next random username
-                except TimeoutException:
-                    pass  # Captcha error not found quickly, assume okay for now
-                except Exception as cap_err:
-                    _log(
-                        f"Error checking for captcha error for random '{username}': {cap_err}. Assuming okay.")
+                            f"Checking current URL for ad fragment (random): {current_url}")
+                        if "#google_vignette" in current_url:
+                            _log(
+                                "Detected ad URL fragment (#google_vignette) immediately after random registration success. Refreshing...")
+                            driver.refresh()
+                            _log(
+                                "Waiting for Inbox button again after ad refresh (up to 30s)...")
+                            from selenium.webdriver.support.ui import WebDriverWait
+                            from selenium.webdriver.support import expected_conditions as EC
+                            try:
+                                WebDriverWait(driver, 30).until(
+                                    EC.element_to_be_clickable(
+                                        (By.XPATH, inbox_xpath))
+                                )
+                                _log("Inbox button found after ad refresh (random).")
+                            except TimeoutException:
+                                _log(
+                                    "[REG_ERROR] Inbox button did NOT reappear after ad refresh (random).")
+                                continue  # Try next random username
+                            except Exception as ad_refresh_wait_err:
+                                _log(
+                                    f"[REG_ERROR] Error waiting for inbox after ad refresh (random): {ad_refresh_wait_err}")
+                                continue  # Try next random username
+                        else:
+                            _log(
+                                "No ad URL fragment detected after random registration.")
+                    except Exception as ad_check_err:
+                        _log(
+                            f"[REG_WARN] Error checking for ad URL fragment after random registration: {ad_check_err}")
+                    # --- END Ad Check ---
 
-                # If neither specific error was found quickly, assume submission was accepted
-                _log(
-                    f"Registration submission accepted for random username: {username}. (Final success depends on subsequent checks).")
-                return True  # Return True indicating submission OK
+                    return True  # Exit handle_registration_process successfully
+                else:
+                    # This case should not happen if find_element_with_wait works correctly (throws TimeoutException)
+                    _log(
+                        f"[REG_WARN] Inbox button check returned non-None but falsey? Assuming not found for random '{username}'.")
+                    # Proceed to check if back on registration page
 
             except TimeoutException:
-                # Neither error element appeared quickly. Assume submission was accepted.
                 _log(
-                    f"No immediate errors detected for random '{username}'. Assuming submission accepted. (Final success depends on subsequent checks).")
-                return True  # Return True indicating submission OK
+                    f"[REG_INFO] Inbox button not found within 20s for random '{username}'. Checking if back on registration page...")
+                # Check if we are back on the registration page
+                try:
+                    username_field_check = find_element_with_wait(
+                        driver, By.XPATH, XPATHS_REGISTRATION["username_input"], timeout=3, log_queue=log_queue, profile_id=profile_id)
+                    if username_field_check:
+                        # Simplified: If username field is found, assume failure and retry.
+                        _log(
+                            f"[REG_FAIL] Returned to registration page for random username '{username}'. Retrying next username.")
+                        continue  # Try next random username
+                    else:
+                        # Username field check returned falsey (shouldn't happen with find_element_with_wait)
+                        # Treat as uncertain state, proceed to final inbox check below.
+                        _log(
+                            f"[REG_WARN] Username field check returned non-None but falsey? Assuming not on reg page for random '{username}'. Proceeding to final check.")
+                        # Fall through to the TimeoutException block which handles the final check
 
-            except Exception as e:
-                # Error during the error checking itself
+                except TimeoutException:
+                    # Username field NOT found after waiting 3s. This means we are NOT on the registration page.
+                    # Since the initial Inbox check also timed out, we are in an uncertain state.
+                    _log(
+                        f"[REG_UNCERTAIN] Not on registration page, but Inbox not found for random '{username}'. Trying final Inbox check (5s)...")
+                    try:
+                        final_inbox_check = find_element_with_wait(
+                            driver, By.XPATH, inbox_xpath, timeout=5, log_queue=log_queue, profile_id=profile_id)
+                        if final_inbox_check:
+                            _log(
+                                f"[REG_SUCCESS] Inbox button found on final check for random '{username}'. Registration successful.")
+
+                            # --- NEW: Check for Ad URL Fragment (Random Username, Final Check) ---
+                            try:
+                                current_url = driver.current_url
+                                _log(
+                                    f"Checking current URL for ad fragment (random, final): {current_url}")
+                                if "#google_vignette" in current_url:
+                                    _log(
+                                        "Detected ad URL fragment (#google_vignette) after final random registration check success. Refreshing...")
+                                    driver.refresh()
+                                    _log(
+                                        "Waiting for Inbox button again after ad refresh (up to 30s)...")
+                                    from selenium.webdriver.support.ui import WebDriverWait
+                                    from selenium.webdriver.support import expected_conditions as EC
+                                    try:
+                                        WebDriverWait(driver, 30).until(
+                                            EC.element_to_be_clickable(
+                                                (By.XPATH, inbox_xpath))
+                                        )
+                                        _log(
+                                            "Inbox button found after ad refresh (random, final).")
+                                    except TimeoutException:
+                                        _log(
+                                            "[REG_ERROR] Inbox button did NOT reappear after ad refresh (random, final).")
+                                        continue  # Try next random username
+                                    except Exception as ad_refresh_wait_err:
+                                        _log(
+                                            f"[REG_ERROR] Error waiting for inbox after ad refresh (random, final): {ad_refresh_wait_err}")
+                                        continue  # Try next random username
+                                else:
+                                    _log(
+                                        "No ad URL fragment detected after final random registration check.")
+                            except Exception as ad_check_err:
+                                _log(
+                                    f"[REG_WARN] Error checking for ad URL fragment after final random registration check: {ad_check_err}")
+                            # --- END Ad Check ---
+
+                            return True
+                        else:
+                            # Final check returned falsey (shouldn't happen)
+                            _log(
+                                f"[REG_FAIL] Final Inbox check failed (returned falsey) for random '{username}'. Retrying next username.")
+                            continue  # Try next random username
+                    except TimeoutException:
+                        # Final check timed out
+                        _log(
+                            f"[REG_FAIL] Final Inbox check timed out for random '{username}'. Retrying next username.")
+                        continue  # Try next random username
+                    except Exception as e_final:
+                        # Error during final check
+                        _log(
+                            f"[REG_ERROR] Error during final Inbox check for random '{username}': {e_final}. Retrying next username.")
+                        continue  # Try next random username
+
+                except Exception as e_user_check:  # Catch errors during the username field check itself
+                    _log(
+                        f"[REG_ERROR] Error checking for username input field for random '{username}': {e_user_check}. Retrying next username.")
+                    continue  # Try next random username
+
+            except Exception as e_inbox_check:  # Catch errors during the initial inbox check
                 _log(
-                    f"Error checking for registration errors for random '{username}': {e}. Retrying.")
+                    f"[REG_ERROR] Unexpected error during initial Inbox check for random '{username}': {e_inbox_check}")
                 continue  # Try next random username
 
         else:
-            # attempt_registration itself returned False
+            # attempt_registration itself returned False (e.g., couldn't click button)
             _log(
                 "Attempt_registration function returned False during random username attempt.")
-            time.sleep(3)
-            continue  # Försök nästa slumpmässiga
+            time.sleep(3)  # Wait a bit longer if the click itself failed
+            continue  # Try next random username
 
     _log("Maximum registration retries reached (including list and random). Failed to register.")
     return False

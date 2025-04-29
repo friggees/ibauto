@@ -88,9 +88,7 @@
             <form action="{{ url_for('stop_bots_route') }}" method="POST" style="display: inline;">
                 <button type="submit" class="stop" {% if not stats.is_running %}disabled{% endif %}>Stop Bots</button>
             </form>
-             <form action="{{ url_for('reset_tracker_route') }}" method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to reset the user tracker data? This cannot be undone.');">
-                <button type="submit" class="stop">Reset User Tracker</button>
-            </form>
+            <!-- Removed Reset User Tracker form -->
             <p>Status: <span id="bot-status">{% if stats.is_running %}Running{% else %}Stopped{% endif %}</span></p>
             <p>Active Processes: <span id="active-processes">{{ stats.active_processes }}</span> / <span id="target-processes">{{ stats.target_processes }}</span></p>
             <div> <!-- Changed from p to div for better structure -->

@@ -2,7 +2,7 @@ import sys
 import os
 import time
 import multiprocessing
-from typing import List, Dict, Optional
+from typing import List, Optional
 
 # --- Placeholder for the actual bot runner function ---
 # Moved from manager.py to address potential Windows multiprocessing issues.
@@ -48,6 +48,8 @@ def run_bot_instance(profile_id: str, stats_queue: multiprocessing.Queue, log_qu
 
     _log(f"Starting process for profile: {profile_id}")
     driver = None
+    # Dictionary to hold user states in memory for this specific bot instance
+    user_states_in_memory = {}
     try:
         # 1. Import necessary functions within the process context
         _log("Attempting internal imports...")
@@ -287,8 +289,9 @@ def run_bot_instance(profile_id: str, stats_queue: multiprocessing.Queue, log_qu
         if proceed_to_chat:
             _log(
                 f"Startup successful. Proceeding to chat cycle for profile {profile_id}.")
-            handle_chat_cycle(driver, profile_id, stats_queue, log_queue,  # Pass log_queue
-                              assigned_city, usernames_list)
+            # Pass the in-memory state dictionary to the chat cycle handler
+            handle_chat_cycle(driver, profile_id, stats_queue, log_queue,
+                              assigned_city, usernames_list, user_states_in_memory)  # Added user_states_in_memory
 
     except Exception as e:
         print(

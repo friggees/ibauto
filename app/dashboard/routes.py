@@ -11,7 +11,7 @@ sys.path.append(PACKAGE_PARENT)
 try:
     from config.manager import load_config, save_config, load_messages, DEFAULT_CONFIG
     from concurrency.manager import ConcurrencyManager
-    from data import user_tracker  # Import user_tracker
+    # Removed: from data import user_tracker
 except ImportError as e:
     print(f"Error importing necessary modules in routes.py: {e}")
     print("Ensure the script is run with the project root in PYTHONPATH or use a proper package structure.")
@@ -43,7 +43,8 @@ except ImportError as e:
     class user_tracker:
         @staticmethod
         def reset_user_tracker():
-            print("Dummy reset_user_tracker called")
+            # Removed dummy reset_user_tracker definition
+            pass  # Keep the class definition valid
 
 # --- Flask App Setup ---
 # Determine template and static folder paths relative to this file
@@ -235,15 +236,7 @@ def stop_single_bot_route(profile_id):
     return redirect(url_for('index'))
 
 
-@app.route('/reset_tracker', methods=['POST'])
-def reset_tracker_route():
-    """Handles resetting the user tracker data."""
-    try:
-        user_tracker.reset_user_tracker()
-        flash("User tracker data has been reset.", "success")
-    except Exception as e:
-        flash(f"Error resetting user tracker data: {e}", "error")
-    return redirect(url_for('index'))
+# Removed reset_tracker_route
 
 
 # --- Main execution ---

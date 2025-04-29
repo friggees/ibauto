@@ -1,6 +1,32 @@
 # Arbetsöversikt: Chatib Bot-projektet
 
-Detta dokument sammanfattar arbetet som utförts hittills och de återstående stegen för att färdigställa Chatib-boten.
+## Introduktion
+
+Detta projekt är en automatiserad bot skriven i Python, designad för att interagera på webbplatsen Chatib.us. Boten använder en kombination av teknologier för att uppnå sitt mål:
+
+*   **Kärnteknologier:**
+    *   **Python:** Huvudsakligt programmeringsspråk.
+    *   **Selenium:** För att automatisera webbläsarinteraktioner (navigering, klick, textinmatning).
+    *   **AdsPower:** Används via dess lokala API för att hantera och starta unika webbläsarprofiler, vilket möjliggör flera samtidiga bot-instanser.
+    *   **Flask:** För att skapa ett webbaserat gränssnitt (dashboard) för konfiguration, kontroll och övervakning av botarna.
+    *   **Multiprocessing:** För att köra flera bot-instanser parallellt.
+
+*   **Huvudfunktionalitet:**
+    *   Startar och hanterar webbläsarinstanser via AdsPower API.
+    *   Hanterar registreringsprocessen på Chatib, inklusive att använda fördefinierade användarnamnslistor och hantera vanliga registreringsfel (t.ex. upptagna namn, captcha).
+    *   Navigerar på webbplatsen, specifikt till inkorgen.
+    *   Identifierar och väljer ut specifika användare (t.ex. manliga) att interagera med.
+    *   Engagerar sig i chatt genom att skicka en sekvens av fördefinierade meddelanden, med logik för att vänta på svar i vissa faser.
+    *   Hanterar olika felscenarier, inklusive annonser, oväntade popups ("Something went wrong"), och utloggningar, med strategier som siduppdateringar och omregistrering.
+    *   Tillhandahåller en webb-dashboard (`index.html` via Flask) där användaren kan:
+        *   Konfigurera bot-inställningar (t.ex. meddelanden, OnlyFans-länk, användarnamnslistor, antal instanser).
+        *   Starta och stoppa alla botar.
+        *   Stoppa individuella bot-instanser.
+        *   Se realtidsstatistik (t.ex. skickade länkar, startade konversationer).
+        *   Visa detaljerade loggar för varje enskild bot-instans.
+        *   Aktivera/inaktivera headless mode för webbläsarna.
+
+Detta dokument nedan detaljerar det specifika arbetet som utförts kronologiskt för att bygga denna funktionalitet.
 
 ## Utfört Arbete
 
@@ -88,23 +114,42 @@ Detta dokument sammanfattar arbetet som utförts hittills och de återstående s
 12. **Robusthet vid Registrering (2025-04-26):**
     *   **Verifiering efter "Start Chat Now":** Lagt till en kontroll i `attempt_registration` (`app/bot_core/registration.py`) direkt efter att "Start Chat Now"-knappen klickats. Kontrollen verifierar att användarnamnsfältet (`//input[@id='username']`) *inte* längre finns på sidan (med en kort timeout). Om fältet fortfarande finns, indikerar det att inloggningen/sidbytet misslyckades, och funktionen returnerar `False`. Detta ökar robustheten mot oväntade fel eller ändringar på registreringssidan.
 
-## Återstående Arbete och Nästa Steg
+13. **Reaktiv Felhantering (Popup "Something went wrong") (2025-04-28):**
+    *   Implementerat logik i `app/bot_core/chat_logic.py` för att hantera fel som uppstår under kritiska interaktioner (t.ex. klick på Inbox, skicka meddelande).
+    *   **Steg 1 (Vid första felet):** Försöker med en omedelbar siduppdatering (`driver.refresh()`) och försöker sedan utföra den misslyckade åtgärden igen.
+    *   **Steg 2 (Vid andra felet):** Om åtgärden misslyckas igen efter uppdateringen, initieras en fullständig återställningssekvens (`_handle_full_recovery_sequence`):
+        1.  Kontrollerar om popupen "Something went wrong." eller dess OK-knapp finns (med generiska XPaths).
+        2.  Försöker klicka på OK-knappen om den hittas.
+        3.  Försöker navigera till Inbox. Om lyckat, återupptas normal cykel.
+        4.  Om Inbox misslyckas, kontrollerar om registreringssidans användarnamnsfält finns. Om ja, startas omregistrering. Om nej, görs en *andra* siduppdatering och försök navigeras till Inbox igen.
+        5.  Om Inbox misslyckas *igen* efter andra uppdateringen, kontrolleras användarnamnsfältet igen. Om det finns, startas omregistrering.
+        6.  Om användarnamnsfältet *fortfarande* inte finns, rensas alla cookies, går till startsidan och startar omregistrering (sista utväg).
 
-1.  **Multi-Instance Testing:**
-    *   Verifiera att den nya sekventiella startlogiken fungerar stabilt för flera instanser under längre körningar.
-    *   Övervaka resursanvändning (CPU, RAM) och potentiella flaskhalsar vid samtidig körning.
-    *   Verifiera att `user_ids.json` hanteras korrekt vid samtidig läsning/skrivning (konkurrens).
-    *   Verifiera att dashboard-statistiken aggregeras korrekt från alla instanser.
-
-2.  **Dashboard Förbättringar & Failsafe (Nästa Fokus):**
-    *   **Statistik - "Konversationer Startade":** Implementera logik för att räkna och visa när en bot skickar det *första* meddelandet (fas 0) till en *ny* användare.
-    *   **Automatisk Failsafe (Banned):** Implementera logik för att upptäcka om ett konto blivit blockerat (genom att söka efter nyckelord) och automatiskt starta om processen med ett nytt profil-ID från en backup-lista. (Kräver UI för backup-lista).
-    *   **(Eventuellt) Individuell Start:** Utvärdera behovet och komplexiteten av att kunna starta en *enskild* bot manuellt.
-
-3.  **Förfining och Robusthet:**
-    *   Baserat på multi-instance-testning, justera eventuella väntetider (`time.sleep`, `WebDriverWait`-timeouts) för optimal prestanda och stabilitet.
-    *   Om konkurrensproblem med `user_ids.json` uppstår, överväg mer robust fillåsning eller en annan state management-lösning.
-    *   Förbättra felhantering ytterligare för oväntade scenarion.
-
-4.  **Dokumentation:**
-    *   Uppdatera `README.md` med slutgiltiga instruktioner när boten är stabil och de nya funktionerna är implementerade.
+14. **Refaktorering: Lokal Användarstatus i Minnet (2025-04-28):**
+    *   **Mål:** Ta bort beroendet av den delade filen `data/user_ids.json` för att spåra användarinteraktioner (t.ex. meddelandefas). Istället ska varje enskild bot-process hålla reda på status för de användare den interagerar med direkt i minnet under sin körningstid. Detta eliminerar risken för filkonflikter och race conditions mellan processer och speglar kravet att status endast är relevant per session och profil, eftersom bottarna arbetar i olika städer och användar-ID:n ofta är temporära.
+    *   **Steg:**
+        1.  **Initiera Minnesbaserad Status:**
+            *   I `app/concurrency/bot_runner.py`, inuti funktionen `run_bot_instance`, skapa en tom dictionary (t.ex. `user_states_in_memory = {}`) innan huvud-`try`-blocket. Denna dictionary kommer att lagra status för användare som hanteras av just denna process.
+            *   Skicka denna `user_states_in_memory`-dictionary som ett nytt argument till funktionen `handle_chat_cycle`.
+        2.  **Modifiera Chattlogik (`app/bot_core/chat_logic.py`):**
+            *   Uppdatera funktionssignaturen för `handle_chat_cycle` så att den accepterar den nya `user_states_in_memory`-dictionaryn.
+            *   Ta bort alla importer relaterade till `app.data.user_tracker`.
+            *   Leta upp alla anrop till `user_tracker.get_user_state(user_id)`:
+                *   Ersätt dessa med en direkt uppslagning i den mottagna dictionaryn: `user_states_in_memory.get(str(user_id))`. Hantera fallet där nyckeln inte finns (returnerar `None`).
+            *   Leta upp alla anrop till `user_tracker.update_user_state(user_id, updates)`:
+                *   Ersätt dessa med logik för att uppdatera den mottagna dictionaryn:
+                    *   Konvertera `user_id` till sträng (`user_id_str = str(user_id)`).
+                    *   Kontrollera om `user_id_str` finns som nyckel i `user_states_in_memory`.
+                    *   Om inte, skapa en ny post för `user_id_str` med initiala värden (t.ex. `{'first_contact': time.time(), 'message_phase': 0, 'user_incoming_message_count_at_last_send': -1, 'last_interaction': time.time()}`).
+                    *   Om nyckeln finns, uppdatera den befintliga posten med värdena från `updates`-dictionaryn.
+                    *   Uppdatera alltid `last_interaction`-tidsstämpeln för `user_id_str` till `time.time()`.
+            *   Ta bort eventuella anrop till `user_tracker.cleanup_old_users`, då statusen nu är sessionsbunden och rensas när processen avslutas.
+        3.  **Rensa Dashboard (`app/dashboard/routes.py`):**
+            *   Ta bort importen `from data import user_tracker`.
+            *   Ta bort hela Flask-routen för `/reset_tracker` (funktionen `reset_tracker_route`).
+        4.  **Rensa Dashboard UI (`app/dashboard/templates/index.html`):**
+            *   Leta upp och ta bort HTML-elementet (troligen en knapp eller ett formulär) som används för att anropa `/reset_tracker`.
+        5.  **Ta Bort Överflödiga Filer:**
+            *   Radera filen `app/data/user_tracker.py`.
+            *   Radera filen `data/user_ids.json`.
+    *   **Status: KLAR**

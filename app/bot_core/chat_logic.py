@@ -7,10 +7,10 @@ from typing import Optional, List  # Added List for type hint
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException, TimeoutException, StaleElementReferenceException
 from selenium.webdriver.common.keys import Keys
-import json  # Added json import
-
-# Import the new user_tracker module
-from app.data import user_tracker
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import json
+# Removed duplicate: import time
 
 # Assuming selenium_handler provides the necessary driver and helper functions
 try:
@@ -634,10 +634,12 @@ def send_message(driver, message_text: str, log_queue: multiprocessing.Queue, pr
     return False
 
 
-def handle_chat_cycle(driver, profile_id, stats_queue, log_queue: multiprocessing.Queue, assigned_city: Optional[str], usernames_list: List[str]):
+# Added user_states_in_memory
+def handle_chat_cycle(driver, profile_id, stats_queue, log_queue: multiprocessing.Queue, assigned_city: Optional[str], usernames_list: List[str], user_states_in_memory: dict):
     """
     Main loop for handling chat interactions for one browser instance.
     Sends stats and logs back via the provided queues.
+    Uses an in-memory dictionary to track user state for this instance.
 
     Args:
         driver: The Selenium WebDriver instance.
@@ -809,20 +811,23 @@ def handle_chat_cycle(driver, profile_id, stats_queue, log_queue: multiprocessin
             # Add this user to the set of interacted users *after* successful click/ID retrieval
             interacted_user_ids_this_pass.add(current_user_id)
 
-            # 4. Determine message phase and state for this user
-            user_state = user_tracker.get_user_state(current_user_id)
+            # 4. Determine message phase and state for this user from in-memory dict
+            # Use string keys for consistency
+            user_id_str = str(current_user_id)
+            user_state = user_states_in_memory.get(user_id_str)
 
             if user_state is None:
-                # Initialize state for a new user if not found in tracker
-                user_tracker.update_user_state(current_user_id, {
+                # Initialize state for a new user directly in the dictionary
+                user_state = {
+                    "first_contact": time.time(),  # Track first contact time
                     "message_phase": 0,
-                    "user_incoming_message_count_at_last_send": -1
-                })
-                # Retrieve the newly created state to work with
-                user_state = user_tracker.get_user_state(current_user_id)
+                    "user_incoming_message_count_at_last_send": -1,
+                    "last_interaction": time.time()  # Initialize last interaction
+                }
+                user_states_in_memory[user_id_str] = user_state
                 # Use _log
                 _log(
-                    f"[Cycle: {cycle_count}] Initialized state for new User ID: {current_user_id}")
+                    f"[Cycle: {cycle_count}] Initialized in-memory state for new User ID: {user_id_str}")
 
             # Extract current phase and last recorded incoming count from the user state
             current_phase = user_state.get("message_phase", 0)
@@ -830,13 +835,13 @@ def handle_chat_cycle(driver, profile_id, stats_queue, log_queue: multiprocessin
                 "user_incoming_message_count_at_last_send", -1)
 
             # LOGGING (Use _log)
-            _log(f"[Cycle: {cycle_count}] Retrieved state for User ID: {current_user_id} - Phase: {current_phase}, Last Incoming Count: {last_recorded_incoming}")
+            _log(f"[Cycle: {cycle_count}] Retrieved in-memory state for User ID: {user_id_str} - Phase: {current_phase}, Last Incoming Count: {last_recorded_incoming}")
 
             if current_phase > final_message_index:
                 # Use _log
                 _log(
-                    f"[Cycle: {cycle_count}] User {current_user_id} has already received the final message (Phase {current_phase}). Skipping.")
-                # No need to remove from state here, cleanup_old_users handles it periodically
+                    f"[Cycle: {cycle_count}] User {user_id_str} has already received the final message (Phase {current_phase}). Skipping.")
+                # State will be lost when process ends, no explicit cleanup needed
                 continue  # Find a new user
 
             # 5. Check if it's time to send the next message
@@ -888,13 +893,14 @@ def handle_chat_cycle(driver, profile_id, stats_queue, log_queue: multiprocessin
                     driver, incoming=True, log_queue=log_queue, profile_id=profile_id)
                 # Use _log
                 _log(
-                    f"[Cycle: {cycle_count}] Recording incoming count {num_incoming_after_send} for User ID {current_user_id} after sending.")
+                    f"[Cycle: {cycle_count}] Recording incoming count {num_incoming_after_send} for User ID {user_id_str} after sending.")
 
-                # Update state using user_tracker
-                user_tracker.update_user_state(current_user_id, {
-                    "message_phase": new_phase,
-                    "user_incoming_message_count_at_last_send": num_incoming_after_send
-                })
+                # Update state directly in the in-memory dictionary
+                user_state["message_phase"] = new_phase
+                user_state["user_incoming_message_count_at_last_send"] = num_incoming_after_send
+                # Update last interaction time
+                user_state["last_interaction"] = time.time()
+                # No need to call user_states_in_memory[user_id_str] = user_state again, as user_state is a reference
 
                 # --- Handle Link Sent ---
                 if phase_just_sent == final_message_index:
@@ -944,52 +950,189 @@ def handle_chat_cycle(driver, profile_id, stats_queue, log_queue: multiprocessin
             # The loop naturally continues, which will lead back to go_to_inbox()
 
         except Exception as e:
-            # Use _log
             _log(
-                f"[Cycle: {cycle_count}] An error occurred in the chat cycle: {e}")
-            # Basic error handling: Refresh page and try again
-            is_logged_out = False
+                f"[Cycle: {cycle_count}] An error occurred: {type(e).__name__} - {e}")
+
+            # --- First Recovery Attempt: Refresh & Continue ---
+            _log(
+                f"[Cycle: {cycle_count}] Attempting initial recovery: Refresh page...")
             try:
-                # Quick check for a registration element
-                # TODO: Update find_element_with_wait call later
-                if find_element_with_wait(driver, By.XPATH, "//input[@id='username']", timeout=2):
-                    is_logged_out = True
-            except Exception:
-                pass  # Ignore errors here, just checking for element
+                driver.refresh()
+                _log("Waiting for inbox button after initial error refresh...")
+                WebDriverWait(driver, 60).until(
+                    EC.element_to_be_clickable(
+                        (By.XPATH, XPATHS_INTERACTION["navigation"]["inbox_button"]))
+                )
+                _log("Page refreshed and inbox button found. Continuing to next cycle...")
+                continue  # Try the next cycle from the start after refresh
 
-            if is_logged_out:
-                _log("Detected logout. Attempting re-registration...")  # Use _log
-                # Pass the assigned city, username list, AND log_queue to the registration process
-                # Pass log_queue
-                if handle_registration_process(driver, assigned_city, usernames_list, log_queue):
-                    _log("Re-registration successful.")  # Use _log
-                    # Clear state for this profile? Maybe not needed if process restarts state.
-                else:
-                    # Use _log
-                    _log("Re-registration failed. Stopping interaction for this profile.")
-                    # Signal failure to concurrency manager?
-                    break  # Exit the loop for this profile
-            else:
-                # Use _log
+            except Exception as refresh_err:
                 _log(
-                    f"[Cycle: {cycle_count}] Refreshing page due to error: {e}")
-                try:
-                    driver.refresh()
-                    # Wait explicitly after refresh
-                    # Use _log
-                    _log(
-                        f"[Cycle: {cycle_count}] Waiting for inbox button after error refresh...")
-                    WebDriverWait(driver, 60).until(
-                        EC.element_to_be_clickable(
-                            (By.XPATH, XPATHS_INTERACTION["navigation"]["inbox_button"]))
-                    )
-                    # Use _log
-                    _log(
-                        f"[Cycle: {cycle_count}] Page refreshed and inbox button found after error.")
-                except Exception as refresh_err:
-                    # Use _log
-                    _log(
-                        f"[Cycle: {cycle_count}] Failed to refresh page after error: {refresh_err}. Stopping interaction.")
-                    break  # Exit loop
+                    f"Failed during initial refresh/wait: {refresh_err}. Proceeding to full recovery...")
+                # Fall through to full recovery if refresh fails
 
-            continue  # Continue to next cycle attempt
+            # --- Second Recovery Attempt: Full Sequence ---
+            _log(
+                f"[Cycle: {cycle_count}] Initial refresh failed or didn't prevent error. Initiating full recovery sequence...")
+            # Pass all necessary arguments
+            recovery_successful = _handle_full_recovery_sequence(
+                driver, log_queue, profile_id, assigned_city, usernames_list
+            )
+
+            if recovery_successful:
+                _log(
+                    f"[Cycle: {cycle_count}] Full recovery sequence successful. Continuing next cycle.")
+                continue  # Continue to the next cycle attempt
+            else:
+                _log(
+                    f"[Cycle: {cycle_count}] Full recovery sequence failed or triggered re-registration. Stopping interaction.")
+                break  # Exit the loop for this profile
+
+
+# --- Recovery Helper Function ---
+
+def _handle_full_recovery_sequence(driver, log_queue: multiprocessing.Queue, profile_id: str, assigned_city: Optional[str], usernames_list: List[str]):
+    """
+    Handles the full error recovery sequence after an initial refresh+retry failed.
+    Checks for popups, tries inbox, checks registration, refreshes again, etc.
+
+    Returns:
+        True if recovery was successful (e.g., back in inbox),
+        False if recovery failed or triggered re-registration.
+    """
+    def _log(message: str):
+        """Local logger for recovery sequence."""
+        try:
+            log_queue.put(
+                {'bot_id': profile_id, 'message': f"[RECOVERY] {message}"})
+        except Exception as log_err:
+            print(
+                f"[Bot Process {os.getpid()} - LOG QUEUE ERROR for {profile_id}] {log_err}\nFALLBACK LOG: [RECOVERY] {message}")
+
+    _log("Starting full recovery sequence...")
+
+    # --- Step 3a & 3b: Check for Popup and Click OK ---
+    try:
+        _log("Checking for 'Something went wrong' popup...")
+        # Use short timeout as popup might not be there
+        popup_text = find_element_with_wait(
+            driver, By.XPATH, "//*[contains(text(), 'Something went wrong.')]", timeout=2, log_queue=log_queue, profile_id=profile_id)
+        ok_button = find_element_with_wait(
+            driver, By.XPATH, "//button[normalize-space(.)='OK']", timeout=2, log_queue=log_queue, profile_id=profile_id)
+
+        if popup_text or ok_button:
+            _log("Popup detected. Attempting to click OK button...")
+            if ok_button:
+                # Pass log info
+                clicked_ok = click_element(
+                    ok_button, log_queue=log_queue, profile_id=profile_id)
+                _log(f"Click OK button attempt result: {clicked_ok}")
+            else:
+                _log("OK button element not found, cannot click.")
+            time.sleep(1)  # Pause after potential click
+        else:
+            _log("Popup text/button not found.")
+
+    except Exception as popup_err:
+        _log(f"Error during popup check/click: {popup_err}")
+
+    # --- Step 3c: Recovery Attempt 1: Try Inbox ---
+    _log("Recovery Attempt 1: Trying to navigate to Inbox...")
+    # Pass log info
+    if go_to_inbox(driver, log_queue, profile_id):
+        _log("Recovery Attempt 1: Successfully navigated to Inbox. Recovery successful.")
+        return True  # Recovered to a known state
+
+    # --- Step 3d: Recovery Attempt 2: Check Registration Page & Second Refresh ---
+    _log("Recovery Attempt 1 (Inbox) failed.")
+    _log("Recovery Attempt 2: Checking for registration page...")
+    try:
+        # Use the registration XPath for username input
+        # Assuming this is correct from registration.py
+        username_input_xpath = "//input[@id='username']"
+        # Pass log info
+        username_field = find_element_with_wait(
+            driver, By.XPATH, username_input_xpath, timeout=3, log_queue=log_queue, profile_id=profile_id)
+        if username_field:
+            _log("Recovery Attempt 2: Registration page detected (username field found). Triggering re-registration...")
+            # Pass log info
+            if handle_registration_process(driver, assigned_city, usernames_list, log_queue, profile_id):
+                _log("Re-registration successful during recovery.")
+            else:
+                _log("Re-registration failed during recovery.")
+            return False  # Re-registration attempted, stop current cycle flow
+        else:
+            # Username field NOT found
+            _log(
+                "Recovery Attempt 2: Not on registration page. Performing second refresh...")
+            try:
+                driver.refresh()
+                _log("Waiting for inbox button after second refresh...")
+                WebDriverWait(driver, 60).until(
+                    EC.element_to_be_clickable(
+                        (By.XPATH, XPATHS_INTERACTION["navigation"]["inbox_button"]))
+                )
+                _log("Page refreshed and inbox button found after second refresh.")
+
+                # --- Repeat Step 3c (Try Inbox again) ---
+                _log("Recovery Attempt 2: Trying Inbox again after second refresh...")
+                # Pass log info
+                if go_to_inbox(driver, log_queue, profile_id):
+                    _log(
+                        "Recovery Attempt 2: Successfully navigated to Inbox after second refresh. Recovery successful.")
+                    return True  # Recovered
+            except Exception as refresh_err:
+                _log(
+                    f"Error during second refresh or waiting for inbox: {refresh_err}")
+                # Proceed to next check even if refresh fails
+    except Exception as check_reg_err:
+        _log(f"Error checking for registration page: {check_reg_err}")
+        # Proceed to next check
+
+    # --- Step 3e: Recovery Attempt 3: Check Registration Page Again ---
+    _log("Recovery Attempt 2 (Inbox after second refresh) failed.")
+    _log("Recovery Attempt 3: Checking for registration page again...")
+    try:
+        username_input_xpath = "//input[@id='username']"
+        # Pass log info
+        username_field = find_element_with_wait(
+            driver, By.XPATH, username_input_xpath, timeout=3, log_queue=log_queue, profile_id=profile_id)
+        if username_field:
+            _log(
+                "Recovery Attempt 3: Registration page detected. Triggering re-registration...")
+            # Pass log info
+            if handle_registration_process(driver, assigned_city, usernames_list, log_queue, profile_id):
+                _log("Re-registration successful during recovery (attempt 3).")
+            else:
+                _log("Re-registration failed during recovery (attempt 3).")
+            return False  # Re-registration attempted
+    except Exception as check_reg_err_2:
+        _log(
+            f"Error checking for registration page (attempt 3): {check_reg_err_2}")
+
+    # --- Step 3f: Final Fallback: Clear Cookies & Restart ---
+    _log("Recovery Attempt 3 failed or registration page not found.")
+    _log("Final Fallback: Clearing cookies and attempting re-registration...")
+    try:
+        driver.delete_all_cookies()
+        _log("Cookies cleared.")
+        # Navigate to base URL - get from config? Or hardcode?
+        base_url = "https://chatib.us/"  # Assuming base URL
+        _log(f"Navigating to base URL: {base_url}")
+        driver.get(base_url)
+        time.sleep(3)  # Wait for page load
+
+        _log("Triggering re-registration after clearing cookies...")
+        # Pass log info
+        if handle_registration_process(driver, assigned_city, usernames_list, log_queue, profile_id):
+            _log("Re-registration successful after clearing cookies.")
+        else:
+            _log("Re-registration failed after clearing cookies.")
+        return False  # Re-registration attempted, stop current flow
+    except Exception as final_fallback_err:
+        _log(
+            f"Error during final fallback (clear cookies/re-register): {final_fallback_err}")
+        return False  # Final recovery failed
+
+    _log("Full recovery sequence completed, but failed to recover to a usable state.")
+    return False  # Indicate recovery failure
