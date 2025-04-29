@@ -3,190 +3,446 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chatib Bot Dashboard</title>
+    <title>Chatib Bot Dashboard [Redesign]</title>
     <style>
-        body { font-family: sans-serif; margin: 20px; background-color: #f4f4f4; }
-        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        h1, h2 { color: #333; }
-        label { display: block; margin-top: 10px; font-weight: bold; }
-        input[type="text"], input[type="number"], textarea {
-            width: 95%;
-            padding: 8px;
-            margin-top: 5px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
+        :root {
+            --bg-color: #1a1d21; /* Very dark grey-blue */
+            --card-bg-color: #2c3035; /* Slightly lighter grey-blue */
+            --text-color: #e0e0e0; /* Light grey */
+            --text-muted-color: #a0a0a0; /* Dimmer grey */
+            --border-color: #40454a;
+            --primary-color: #00bcd4; /* Teal accent */
+            --primary-hover-color: #00acc1;
+            --danger-color: #e57373; /* Softer red */
+            --danger-hover-color: #ef5350;
+            --success-color: #81c784; /* Softer green */
+            --warning-color: #fff176; /* Softer yellow */
+            --info-color: #64b5f6; /* Softer blue */
+            --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --monospace-font: 'Consolas', 'Courier New', monospace;
         }
-        textarea { min-height: 150px; font-family: monospace; }
+
+        body {
+            font-family: var(--font-family);
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        .dashboard-container {
+            display: flex;
+            gap: 20px;
+            max-width: 1600px; /* Limit overall width */
+            margin: 0 auto; /* Center the container */
+        }
+
+        .main-column {
+            flex: 3; /* Takes up more space */
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .sidebar-column {
+            flex: 2; /* Takes up less space */
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .card {
+            background-color: var(--card-bg-color);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .card h2 {
+            color: var(--text-color);
+            margin-top: 0;
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            font-size: 1.3em;
+            font-weight: 600;
+        }
+
+        .card h3 {
+            color: var(--text-color);
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+            font-weight: 500;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: var(--text-muted-color);
+            font-size: 0.9em;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        textarea,
+        select {
+            width: 100%; /* Full width within container */
+            padding: 10px;
+            margin-bottom: 15px; /* Spacing below inputs */
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--bg-color); /* Match body background */
+            color: var(--text-color);
+            box-sizing: border-box; /* Include padding in width */
+            font-size: 0.95em;
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(0, 188, 212, 0.3);
+        }
+
+        textarea {
+            min-height: 120px;
+            font-family: var(--monospace-font);
+            resize: vertical;
+        }
+
+        input[type="checkbox"] {
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        .checkbox-label {
+            display: inline-block;
+            vertical-align: middle;
+            margin-bottom: 15px; /* Align with other inputs */
+            color: var(--text-color); /* Ensure checkbox label text is visible */
+        }
+
+        small {
+            display: block;
+            margin-top: -10px; /* Pull closer to input */
+            margin-bottom: 15px;
+            color: var(--text-muted-color);
+            font-size: 0.85em;
+        }
+
         button, input[type="submit"] {
-            background-color: #5cb85c;
-            color: white;
-            padding: 10px 15px;
+            background-color: var(--primary-color);
+            color: #fff; /* White text on primary */
+            padding: 10px 20px;
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            margin-top: 15px;
+            margin-top: 10px;
+            margin-right: 10px;
+            font-size: 1em;
+            transition: background-color 0.2s ease;
+        }
+
+        button:hover, input[type="submit"]:hover {
+            background-color: var(--primary-hover-color);
+        }
+
+        button.stop, button.stop-single-bot {
+            background-color: var(--danger-color);
+        }
+        button.stop:hover, button.stop-single-bot:hover {
+            background-color: var(--danger-hover-color);
+        }
+
+        button:disabled {
+            background-color: #555;
+            color: #999;
+            cursor: not-allowed;
+        }
+
+        /* Specific button styles */
+        button.stop-single-bot {
+             padding: 5px 10px;
+             font-size: 0.9em;
+             margin-top: 0;
+             margin-left: 10px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px 20px; /* Row gap, Column gap */
+        }
+
+        .form-group {
+            margin-bottom: 0; /* Remove default bottom margin */
+        }
+        .form-group label {
+            margin-bottom: 5px;
+        }
+        .form-group input, .form-group textarea, .form-group select {
+            margin-bottom: 0; /* Remove default bottom margin */
+        }
+        .form-group small {
+            margin-top: 5px; /* Add space above small text */
+            margin-bottom: 0;
+        }
+
+        .span-2 { /* Utility class for grid items spanning 2 columns */
+            grid-column: span 2;
+        }
+
+        /* Stats & Status */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+        .stat-item p {
+            margin: 0;
+            color: var(--text-muted-color);
+            font-size: 0.9em;
+        }
+        .stat-item span {
+            display: block;
+            font-size: 1.4em;
+            font-weight: bold;
+            color: var(--text-color);
+        }
+
+        /* Active Bots List */
+        #active-bots-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            max-height: 150px; /* Limit height */
+            overflow-y: auto; /* Add scroll if needed */
+        }
+        #active-bots-list li {
+            padding: 5px 0;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+         #active-bots-list li:last-child {
+            border-bottom: none;
+        }
+        #active-bots-list span {
             margin-right: 10px;
         }
-        button.stop { background-color: #d9534f; }
-        /* Style for individual stop buttons */
-        button.stop-single-bot {
-             padding: 5px 10px; /* Smaller padding */
-             font-size: 0.9em; /* Smaller font */
-             margin-top: 0; /* Remove top margin */
-             margin-left: 10px; /* Add left margin */
-        }
-        button:hover, input[type="submit"]:hover { opacity: 0.9; }
-        .stats { margin-top: 20px; padding: 15px; border: 1px solid #eee; border-radius: 4px; background-color: #f9f9f9; }
-        .stats p { margin: 5px 0; }
-        .stats span { font-weight: bold; }
-        .flash-messages { list-style: none; padding: 0; margin-bottom: 15px; }
-        .flash-messages li { padding: 10px; margin-bottom: 10px; border-radius: 4px; }
-        .flash-messages .success { background-color: #dff0d8; color: #3c763d; border: 1px solid #d6e9c6; }
-        .flash-messages .error { background-color: #f2dede; color: #a94442; border: 1px solid #ebccd1; }
-        .flash-messages .warning { background-color: #fcf8e3; color: #8a6d3b; border: 1px solid #faebcc; }
-        .form-section { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
-        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
-        .form-group label { margin-top: 0; } /* Adjust label margin within grid */
+
+        /* Log Viewer */
         #log-output {
-            background-color: #222; /* Dark background for logs */
-            color: #eee; /* Light text */
-            padding: 10px;
+            background-color: #111; /* Even darker for logs */
+            color: #ccc;
+            padding: 15px;
             border-radius: 4px;
-            height: 400px; /* Fixed height */
-            overflow-y: scroll; /* Enable vertical scrolling */
-            white-space: pre-wrap; /* Wrap long lines */
-            word-wrap: break-word; /* Break long words */
-            font-family: monospace;
+            height: 300px;
+            overflow-y: scroll;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: var(--monospace-font);
             font-size: 0.9em;
             margin-top: 10px;
+            border: 1px solid var(--border-color);
         }
-        #bot-log-select { padding: 5px; margin-left: 10px; }
-        #active-bots-list li { margin-bottom: 5px; } /* Add spacing between list items */
+        .log-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .log-controls label { margin-bottom: 0; }
+        .log-controls select { width: auto; flex-grow: 1; margin-bottom: 0; }
+
+        /* Flash Messages */
+        .flash-messages { list-style: none; padding: 0; margin: 0 0 20px 0; }
+        .flash-messages li {
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            border: 1px solid transparent;
+            color: var(--bg-color); /* Dark text on light background */
+            font-weight: 500;
+        }
+        /* Use CSS variables for flash message colors */
+        .flash-messages .success { background-color: var(--success-color); border-color: #66bb6a; } /* Slightly darker border */
+        .flash-messages .error { background-color: var(--danger-color); border-color: #e57373; }
+        .flash-messages .warning { background-color: var(--warning-color); border-color: #ffee58; color: #5c5b3a; } /* Darker text for yellow */
+        .flash-messages .info { background-color: var(--info-color); border-color: #4fc3f7; }
+
+        /* Tooltip styling */
+        .tooltip-icon {
+            cursor: help;
+            border: 1px solid var(--text-muted-color);
+            border-radius: 50%;
+            padding: 0 6px;
+            display: inline-block;
+            margin-left: 5px;
+            font-size: 0.8em;
+            color: var(--text-muted-color);
+        }
+
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Chatib Bot Dashboard</h1>
 
-        <!-- Flash Messages -->
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <ul class="flash-messages">
-                {% for category, message in messages %}
-                    <li class="{{ category }}">{{ message }}</li>
-                {% endfor %}
-                </ul>
-            {% endif %}
-        {% endwith %}
+    <!-- Flash Messages Area -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <ul class="flash-messages">
+            {% for category, message in messages %}
+                <li class="{{ category }}">{{ message }}</li>
+            {% endfor %}
+            </ul>
+        {% endif %}
+    {% endwith %}
 
-        <!-- Bot Control -->
-        <div class="form-section">
-            <h2>Bot Control</h2>
-            <form action="{{ url_for('start_bots_route') }}" method="POST" style="display: inline;">
-                <button type="submit" {% if stats.is_running %}disabled{% endif %}>Start Bots</button>
-            </form>
-            <form action="{{ url_for('stop_bots_route') }}" method="POST" style="display: inline;">
-                <button type="submit" class="stop" {% if not stats.is_running %}disabled{% endif %}>Stop Bots</button>
-            </form>
-            <!-- Removed Reset User Tracker form -->
-            <p>Status: <span id="bot-status">{% if stats.is_running %}Running{% else %}Stopped{% endif %}</span></p>
-            <p>Active Processes: <span id="active-processes">{{ stats.active_processes }}</span> / <span id="target-processes">{{ stats.target_processes }}</span></p>
-            <div> <!-- Changed from p to div for better structure -->
-                <label>Active Bots:</label>
-                <ul id="active-bots-list" style="list-style: none; padding: 0;">
-                    <!-- Active bots will be populated by JavaScript -->
-                    {% if not stats.active_profile_ids %}
-                    <li>None</li>
-                    {% endif %}
-                </ul>
+
+    <div class="dashboard-container">
+
+        <!-- Main Content Column (Configuration) -->
+        <div class="main-column">
+            <div class="card">
+                <h2>Configuration</h2>
+                <form action="{{ url_for('save_config_route') }}" method="POST">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="adspower_api_key">AdsPower API Key</label>
+                            <input type="text" id="adspower_api_key" name="adspower_api_key" value="{{ config.adspower_api_key }}">
+                        </div>
+                        <div class="form-group">
+                            <label for="adspower_api_host">AdsPower API Host</label>
+                            <input type="text" id="adspower_api_host" name="adspower_api_host" value="{{ config.adspower_api_host }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="onlyfans_link">OnlyFans Link</label>
+                            <input type="text" id="onlyfans_link" name="onlyfans_link" value="{{ config.onlyfans_link }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="max_concurrent_browsers">Max Concurrent Browsers</label>
+                            <input type="number" id="max_concurrent_browsers" name="max_concurrent_browsers" value="{{ config.max_concurrent_browsers }}" min="1" required>
+                        </div>
+                        <div class="form-group span-2"> <!-- Span checkbox area -->
+                             <label for="run_headless" class="checkbox-label">
+                                <input type="checkbox" id="run_headless" name="run_headless" value="true" {% if config.get('run_headless', false) %}checked{% endif %}>
+                                Run Headless (AdsPower API must support this)
+                            </label>
+                            <small>Check this to attempt starting browsers without a visible window.</small>
+                        </div>
+                         <div class="form-group span-2">
+                            <label for="adspower_profile_ids">AdsPower Profile IDs (One per line)</label>
+                            <textarea id="adspower_profile_ids" name="adspower_profile_ids" required placeholder="profile_id1&#10;profile_id2&#10;...">{{ config.get('adspower_profile_ids', []) | join('\n') }}</textarea>
+                            <small>Enter each Profile ID on a new line.</small>
+                        </div>
+                        <div class="form-group span-2">
+                            <label for="usernames">Usernames to Try (One per line)</label>
+                            <textarea id="usernames" name="usernames" placeholder="username1&#10;username2&#10;...">{{ config.get('usernames', []) | join('\n') }}</textarea>
+                            <small>Usernames the bot should attempt during registration.</small>
+                        </div>
+                    </div>
+
+                    <h3>Registration Defaults</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="reg_age">Default Age</label>
+                            <input type="number" id="reg_age" name="reg_age" value="{{ config.registration_defaults.age }}" min="18" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="reg_country">Default Country Code</label>
+                            <input type="text" id="reg_country" name="reg_country" value="{{ config.registration_defaults.country }}" placeholder="e.g., US, GB, SE" required>
+                        </div>
+                        <div class="form-group span-2">
+                            <label for="reg_city_options">Default City Options (One per line)
+                                <span class="tooltip-icon" title="Examples:&#10;US: New York, Los Angeles&#10;GB: London, Manchester&#10;SE: Stockholm, Gothenburg">?</span>
+                            </label>
+                            <textarea id="reg_city_options" name="reg_city_options" required placeholder="City1&#10;City2&#10;...">{{ config.registration_defaults.city_options | join('\n') }}</textarea>
+                        </div>
+                    </div>
+
+                    <h3>Message Phases (One per line, use {onlyfans_link})</h3>
+                    <textarea id="messages" name="messages" required>{{ messages }}</textarea>
+                    <small>The last 3 messages are sent rapidly after a delay.</small>
+
+                    <input type="submit" value="Save Configuration & Messages">
+                </form>
             </div>
-            <p>All Known Bot IDs (for log selection): <span id="all-known-bots">{{ stats.get('all_known_bot_ids', stats.active_profile_ids) | join(', ') }}</span></p>
         </div>
 
-        <!-- Statistics -->
-        <div class="stats form-section">
-            <h2>Statistics</h2>
-            <p>Total Links Sent (Current Session): <span id="total-links">{{ stats.total_links_sent }}</span></p>
-            <p>Conversations Started (Current Session): <span id="conversations-started">{{ stats.get('conversations_started', 0) }}</span></p> <!-- NEW STAT DISPLAY -->
-            <!-- Add more stats here if needed -->
-        </div>
-
-         <!-- Bot Logs Viewer -->
-        <div class="form-section">
-            <h2>Bot Logs</h2>
-            <label for="bot-log-select">Select Bot ID:</label>
-            <select id="bot-log-select">
-                <option value="">-- Select a Bot --</option>
-                <!-- Options will be populated by JavaScript -->
-            </select>
-            <pre id="log-output">Select a bot ID to view logs...</pre>
-        </div>
-
-        <!-- Configuration Form -->
-        <div class="form-section">
-            <h2>Configuration</h2>
-            <form action="{{ url_for('save_config_route') }}" method="POST">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="adspower_api_key">AdsPower API Key</label>
-                        <input type="text" id="adspower_api_key" name="adspower_api_key" value="{{ config.adspower_api_key }}">
-                    </div>
-                    <div class="form-group">
-                        <label for="adspower_api_host">AdsPower API Host</label>
-                        <input type="text" id="adspower_api_host" name="adspower_api_host" value="{{ config.adspower_api_host }}" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="onlyfans_link">OnlyFans Link</label>
-                        <input type="text" id="onlyfans_link" name="onlyfans_link" value="{{ config.onlyfans_link }}" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="max_concurrent_browsers">Max Concurrent Browsers</label>
-                         <input type="number" id="max_concurrent_browsers" name="max_concurrent_browsers" value="{{ config.max_concurrent_browsers }}" min="1" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="run_headless">Run Headless (AdsPower API must support this)</label>
-                        <input type="checkbox" id="run_headless" name="run_headless" value="true" {% if config.get('run_headless', false) %}checked{% endif %}>
-                        <small>Check this to attempt starting browsers without a visible window.</small>
-                    </div>
-                     <div class="form-group" style="grid-column: span 2;"> <!-- Make profile IDs wider -->
-                        <label for="adspower_profile_ids">AdsPower Profile IDs (One per line)</label>
-                        <textarea id="adspower_profile_ids" name="adspower_profile_ids" required placeholder="profile_id1&#10;profile_id2&#10;...">{{ config.get('adspower_profile_ids', []) | join('\n') }}</textarea>
-                        <small>Enter each Profile ID on a new line. These profiles will be used when starting bots.</small>
-                    </div>
-                    <div class="form-group" style="grid-column: span 2;"> <!-- Make usernames wider -->
-                        <label for="usernames">Usernames to Try (One per line)</label>
-                        <textarea id="usernames" name="usernames" placeholder="username1&#10;username2&#10;username3&#10;...">{{ config.get('usernames', []) | join('\n') }}</textarea>
-                        <small>Enter usernames the bot should attempt during registration, one per line.</small>
-                    </div>
+        <!-- Sidebar Column (Controls, Stats, Logs) -->
+        <div class="sidebar-column">
+            <!-- Bot Control Card -->
+            <div class="card">
+                <h2>Bot Control</h2>
+                <div>
+                    <form action="{{ url_for('start_bots_route') }}" method="POST" style="display: inline;">
+                        <button type="submit" id="start-button" {% if stats.is_running %}disabled{% endif %}>Start Bots</button>
+                    </form>
+                    <form action="{{ url_for('stop_bots_route') }}" method="POST" style="display: inline;">
+                        <button type="submit" class="stop" id="stop-button" {% if not stats.is_running %}disabled{% endif %}>Stop Bots</button>
+                    </form>
                 </div>
-
-                <h3>Registration Defaults</h3>
-                 <div class="form-grid">
-                    <div class="form-group">
-                        <label for="reg_age">Default Age</label>
-                        <input type="number" id="reg_age" name="reg_age" value="{{ config.registration_defaults.age }}" min="18" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="reg_country">Default Country Code</label>
-                         <input type="text" id="reg_country" name="reg_country" value="{{ config.registration_defaults.country }}" placeholder="e.g., US, GB, SE" required>
-                    </div>
-                    <div class="form-group" style="grid-column: span 2;"> <!-- Make city options wider -->
-                        <label for="reg_city_options">Default City Options (One per line)
-                            <span title="Examples:&#10;US: New York, Los Angeles, Chicago&#10;GB: London, Manchester, Birmingham&#10;DE: Berlin, Hamburg, Munich&#10;AU: Sydney, Melbourne, Brisbane&#10;SE: Stockholm, Gothenburg, Malmo"
-                                  style="cursor: help; border: 1px solid #ccc; border-radius: 50%; padding: 0 5px; display: inline-block; margin-left: 5px;">?</span>
-                        </label>
-                        <textarea id="reg_city_options" name="reg_city_options" required placeholder="City1&#10;City2&#10;City3&#10;...">{{ config.registration_defaults.city_options | join('\n') }}</textarea>
-                    </div>
+                <div style="margin-top: 15px;">
+                    <p style="margin-bottom: 5px;">Status: <span id="bot-status" style="font-weight: bold;">{% if stats.is_running %}Running{% else %}Stopped{% endif %}</span></p>
+                    <p style="margin: 0;">Active Processes: <span id="active-processes">{{ stats.active_processes }}</span> / <span id="target-processes">{{ stats.target_processes }}</span></p>
                 </div>
+                 <div style="margin-top: 15px;">
+                    <label>Active Bots:</label>
+                    <ul id="active-bots-list">
+                        <!-- Populated by JavaScript -->
+                        {% if not stats.active_profile_ids %}
+                        <li>None</li>
+                        {% endif %}
+                    </ul>
+                </div>
+                 <div style="margin-top: 15px;">
+                    <label>All Known Bot IDs (for log selection):</label>
+                    <p id="all-known-bots-paragraph" style="color: var(--text-muted-color); font-size: 0.9em; margin-top: 5px;">
+                        <span id="all-known-bots">{{ stats.get('all_known_bot_ids', stats.active_profile_ids) | join(', ') }}</span>
+                    </p>
+                </div>
+            </div>
 
-                <h3>Message Phases (One per line, use {onlyfans_link} for placeholder, also note the last 3 msgs are sent right after each other w. 10 sec delay)</h3>
-                <textarea id="messages" name="messages" required>{{ messages }}</textarea>
+            <!-- Statistics Card -->
+            <div class="card">
+                <h2>Statistics</h2>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <p>Total Links Sent</p>
+                        <span id="total-links">{{ stats.total_links_sent }}</span>
+                    </div>
+                    <div class="stat-item">
+                        <p>Conversations Started</p>
+                        <span id="conversations-started">{{ stats.get('conversations_started', 0) }}</span>
+                    </div>
+                    <!-- Add more stats here if needed -->
+                </div>
+            </div>
 
-                <input type="submit" value="Save Configuration & Messages">
-            </form>
+            <!-- Bot Logs Viewer Card -->
+            <div class="card">
+                <h2>Bot Logs</h2>
+                <div class="log-controls">
+                    <label for="bot-log-select">Select Bot ID:</label>
+                    <select id="bot-log-select">
+                        <option value="">-- Select a Bot --</option>
+                        <!-- Options will be populated by JavaScript -->
+                    </select>
+                </div>
+                <pre id="log-output">Select a bot ID to view logs...</pre>
+            </div>
         </div>
+
     </div>
 
+    <!-- Include your existing JavaScript here, adapting selectors if necessary -->
     <script>
         // --- Log Fetching Logic (Keep as is) ---
         const logSelect = document.getElementById('bot-log-select');
@@ -197,19 +453,22 @@
 
         function updateBotLogOptions(botIds) {
             const currentSelectedValue = logSelect.value;
+            // Clear existing options except the placeholder
             while (logSelect.options.length > 1) {
                 logSelect.remove(1);
             }
+            // Add new options
             botIds.forEach(id => {
                 const option = document.createElement('option');
                 option.value = id;
                 option.textContent = id;
                 logSelect.appendChild(option);
             });
+            // Restore selection if possible
             if (botIds.includes(currentSelectedValue)) {
                 logSelect.value = currentSelectedValue;
             } else {
-                logSelect.value = "";
+                logSelect.value = ""; // Reset if selected bot is no longer valid
                 selectedBotId = null;
                 stopLogFetching();
                 logOutput.textContent = 'Select a bot ID to view logs...';
@@ -231,25 +490,30 @@
                          logOutput.textContent = `Error fetching logs: ${data.error}`;
                     } else if (data.logs) {
                         const newLogContent = data.logs.join('\n');
+                        // Only update DOM if content changed to avoid unnecessary redraws
                         if (logOutput.textContent !== newLogContent) {
                             logOutput.textContent = newLogContent;
-                            logOutput.scrollTop = logOutput.scrollHeight;
+                            // Scroll to bottom only if the user hasn't scrolled up
+                            const isScrolledToBottom = logOutput.scrollHeight - logOutput.clientHeight <= logOutput.scrollTop + 1;
+                            if(isScrolledToBottom) {
+                                logOutput.scrollTop = logOutput.scrollHeight;
+                            }
                         }
                     } else {
-                        logOutput.textContent = 'No logs received.';
+                        logOutput.textContent = 'No logs received or logs are empty.';
                     }
                 })
                 .catch(error => {
                     console.error('Error fetching logs:', error);
                     logOutput.textContent = `Error fetching logs: ${error}. Is the server running?`;
-                    stopLogFetching();
+                    stopLogFetching(); // Stop trying if there's an error
                 });
         }
 
         function startLogFetching() {
-            stopLogFetching();
+            stopLogFetching(); // Clear any existing interval
             if (selectedBotId) {
-                fetchLogs();
+                fetchLogs(); // Fetch immediately
                 logFetchInterval = setInterval(fetchLogs, LOG_FETCH_INTERVAL_MS);
                 console.log(`Started fetching logs for ${selectedBotId} every ${LOG_FETCH_INTERVAL_MS}ms`);
             }
@@ -278,40 +542,39 @@
         const activeBotsList = document.getElementById('active-bots-list');
 
         activeBotsList.addEventListener('click', function(event) {
-            // Check if the clicked element is a button with the correct class
-            if (event.target.tagName === 'BUTTON' && event.target.classList.contains('stop-single-bot')) {
-                const button = event.target;
-                const profileId = button.dataset.profileId; // Get ID from data attribute
+            // Use closest to handle clicks inside the button if needed, though target should be fine
+            const button = event.target.closest('button.stop-single-bot');
+            if (button) {
+                const profileId = button.dataset.profileId;
 
                 if (profileId && confirm(`Are you sure you want to stop bot ${profileId}?`)) {
-                    // Disable button immediately to prevent multiple clicks
                     button.disabled = true;
                     button.textContent = 'Stopping...';
 
                     fetch(`/stop_bot/${profileId}`, {
                         method: 'POST',
                         headers: {
-                            // CSRF token would be added here if needed
+                            // Add CSRF token header here if Flask-WTF CSRF protection is enabled
                         }
                     })
                     .then(response => {
                         if (!response.ok) {
-                            // Try to get error message from server if possible, otherwise use status
                             return response.text().then(text => {
-                                throw new Error(`Server responded with status ${response.status}: ${text}`);
+                                throw new Error(`Server error: ${response.status} - ${text || 'Unknown error'}`);
                             });
                         }
-                        // Redirect should happen automatically due to Flask redirect
-                        // Fetch stats immediately for a potentially faster UI update before redirect completes
-                        fetchStats();
-                        // No need to re-enable button as page will reload or stats update will remove it
+                        // Don't assume redirect, rely on stats update
+                        fetchStats(); // Trigger immediate stats refresh for faster UI update
                     })
                     .catch(error => {
                         console.error('Error stopping bot:', error);
-                        alert(`Failed to stop bot ${profileId}: ${error}`);
-                        // Re-enable button on error so user can try again if needed
-                        button.disabled = false;
-                        button.textContent = 'Stop';
+                        alert(`Failed to stop bot ${profileId}: ${error.message}`);
+                        // Re-enable button only if the element still exists (might be removed by fetchStats)
+                        const stillExistsButton = document.querySelector(`button.stop-single-bot[data-profile-id="${profileId}"]`);
+                        if (stillExistsButton) {
+                            stillExistsButton.disabled = false;
+                            stillExistsButton.textContent = 'Stop';
+                        }
                     });
                 }
             }
@@ -321,19 +584,22 @@
         // --- Stats Fetching and UI Update ---
         function fetchStats() {
             fetch('/get_stats')
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    return response.json();
+                 })
                 .then(data => {
                     // Update general status
                     document.getElementById('bot-status').textContent = data.is_running ? 'Running' : 'Stopped';
                     document.getElementById('active-processes').textContent = data.active_processes;
                     document.getElementById('target-processes').textContent = data.target_processes;
                     document.getElementById('total-links').textContent = data.total_links_sent;
-                    document.getElementById('conversations-started').textContent = data.conversations_started; // UPDATE NEW STAT
+                    document.getElementById('conversations-started').textContent = data.conversations_started;
 
                     // Update "All Known Bot IDs" span
                     const allKnownBotsSpan = document.getElementById('all-known-bots');
                     if (allKnownBotsSpan) {
-                         allKnownBotsSpan.textContent = data.all_known_bot_ids ? data.all_known_bot_ids.join(', ') : 'N/A';
+                         allKnownBotsSpan.textContent = data.all_known_bot_ids ? data.all_known_bot_ids.join(', ') : 'None';
                     }
 
                     // --- Update Active Bots List with Buttons ---
@@ -345,53 +611,66 @@
 
                             const idSpan = document.createElement('span');
                             idSpan.textContent = botId;
-                            idSpan.style.marginRight = '10px'; // Add space
+                            // idSpan.style.marginRight = '10px'; // Spacing handled by flex justify-content
 
-                            // Create the stop button for this specific bot
                             const stopButtonSingle = document.createElement('button');
                             stopButtonSingle.textContent = 'Stop';
-                            stopButtonSingle.classList.add('stop', 'stop-single-bot'); // Add classes for styling and event listener
-                            stopButtonSingle.dataset.profileId = botId; // Store the profile ID on the button
+                            stopButtonSingle.classList.add('stop', 'stop-single-bot');
+                            stopButtonSingle.dataset.profileId = botId;
 
                             li.appendChild(idSpan);
                             li.appendChild(stopButtonSingle);
                             activeBotsContainer.appendChild(li);
                         });
                     } else {
-                         // Display "None" if no active bots
                          const li = document.createElement('li');
                          li.textContent = 'None';
+                         li.style.justifyContent = 'flex-start'; // Align 'None' text to the left
                          activeBotsContainer.appendChild(li);
                     }
                     // --- End Update Active Bots List ---
 
-                    // Update the log dropdown options
-                    updateBotLogOptions(data.all_known_bot_ids || []);
+                    // Update the log dropdown options, only if the list has changed
+                    const currentOptions = Array.from(logSelect.options).map(opt => opt.value).slice(1); // Ignore placeholder
+                    const newOptions = data.all_known_bot_ids || [];
+                    if (JSON.stringify(currentOptions.sort()) !== JSON.stringify(newOptions.sort())) {
+                        updateBotLogOptions(newOptions);
+                    }
+
 
                     // Enable/disable global start/stop buttons
-                    const startUrl = "{{ url_for('start_bots_route') }}";
-                    const stopUrl = "{{ url_for('stop_bots_route') }}";
-                    const startButton = document.querySelector(`form[action="${startUrl}"] button`);
-                    const stopButton = document.querySelector(`form[action="${stopUrl}"] button`);
-                    if (data.is_running) {
-                        startButton.disabled = true;
-                        stopButton.disabled = false;
-                    } else {
-                        startButton.disabled = false;
-                        stopButton.disabled = true;
-                        stopLogFetching(); // Stop fetching logs if all bots stopped
+                    const startButton = document.getElementById('start-button');
+                    const stopButton = document.getElementById('stop-button');
+                    if (startButton && stopButton) { // Ensure buttons exist
+                        if (data.is_running) {
+                            startButton.disabled = true;
+                            stopButton.disabled = false;
+                        } else {
+                            startButton.disabled = false;
+                            stopButton.disabled = true;
+                            // Consider stopping log fetching if bots are stopped globally
+                            // if (!selectedBotId) stopLogFetching(); // Or maybe always stop if global stop?
+                        }
                     }
                 })
                 .catch(error => {
                     console.error('Error fetching stats:', error);
-                    // Optionally update UI to show stats fetch error
+                    // Update UI to indicate an error fetching stats
+                    document.getElementById('bot-status').textContent = 'Error loading status';
+                    // Maybe disable controls?
                 });
         }
 
         // Fetch stats every 5 seconds
-        setInterval(fetchStats, 5000);
+        const statsIntervalId = setInterval(fetchStats, 5000);
         // Fetch stats immediately on page load
-        fetchStats();
+        document.addEventListener('DOMContentLoaded', fetchStats);
+
+        // Optional: Clear interval on page unload to prevent memory leaks
+        window.addEventListener('beforeunload', () => {
+            clearInterval(statsIntervalId);
+            stopLogFetching();
+        });
 
     </script>
 </body>
